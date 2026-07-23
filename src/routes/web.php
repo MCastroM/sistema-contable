@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\CuentaController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\EmpresaController;
 use App\Http\Controllers\ProfileController;
@@ -16,6 +17,9 @@ Route::middleware(['auth', 'verified'])->group(function () {
     // Cambiar la empresa activa de la sesión
     Route::post('/empresa/seleccionar', [EmpresaController::class, 'seleccionar'])
         ->name('empresa.seleccionar');
+
+    // Plan de cuentas (de la empresa activa)
+    Route::get('/cuentas', [CuentaController::class, 'index'])->name('cuentas.index');
 });
 
 Route::middleware('auth')->group(function () {
