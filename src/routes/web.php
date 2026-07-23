@@ -40,6 +40,8 @@ Route::middleware(['auth', 'verified'])->group(function () {
         ->name('comprobantes.anular');
     Route::delete('/comprobantes/{comprobante}', [ComprobanteController::class, 'eliminar'])
         ->name('comprobantes.eliminar');
+        Route::get('/reportes/libro-diario', [App\Http\Controllers\LibroDiarioController::class, 'index'])
+        ->name('reportes.libro-diario');
 });
 
 Route::middleware('auth')->group(function () {
