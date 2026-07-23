@@ -1,0 +1,75 @@
+services:
+
+  # ── PHP-FPM: ejecuta tu código PHP ─────────────────────────────
+  php:
+    build:
+      context: ./docker/php
+    container_name: contable_php
+    volumes:
+      - ./src:/var/www/html
+#    environment:
+#      DB_HOST: db
+#      DB_PORT: 5432
+#      DB_DATABASE: ${DB_DATABASE:-contable}
+#      DB_USERNAME: ${DB_USERNAME:-contable_user}
+#      DB_PASSWORD: ${DB_PASSWORD:-secret123}
+    depends_on:
+      db:
+        condition: service_healthy
+    networks:
+      - app-network
+
+  # ── Nginx: servidor web, recibe las peticiones HTTP ────────────
+  nginx:
+    image: nginx:1.27-alpine
+    container_name: contable_nginx
+    ports:
+      - "8080:80"          # http://localhost:8080
+    volumes:
+      - ./src:/var/www/html
+      - ./docker/nginx/default.conf:/etc/nginx/conf.d/default.conf:ro
+    depends_on:
+      - php
+    networks:
+      - app-network
+
+  # ── PostgreSQL: base de datos ──────────────────────────────────
+  db:
+    image: postgres:17-alpine
+    container_name: contable_db
+    environment:
+      POSTGRES_DB: ${DB_DATABASE:-contable}
+      POSTGRES_USER: ${DB_USERNAME:-contable_user}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-secret123}
+    ports:
+      - "5432:5432"        # para conectarte con DBeaver/pgAdmin desde tu PC
+    volumes:
+      - db_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USERNAME:-contable_user} -d ${DB_DATABASE:-contable}"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    networks:
+      - app-network
+
+  # ── pgAdmin (opcional): administrar la BD desde el navegador ───
+  pgadmin:
+    image: dpage/pgadmin4:latest
+    container_name: contable_pgadmin
+    environment:
+      PGADMIN_DEFAULT_EMAIL: admin@local.dev
+      PGADMIN_DEFAULT_PASSWORD: admin123
+    ports:
+      - "8081:80"          # http://localhost:8081
+    depends_on:
+      - db
+    networks:
+      - app-network
+
+volumes:
+  db_data:      # los datos de PostgreSQL sobreviven aunque borres los contenedores
+
+networks:
+  app-network:
+    driver: bridge

@@ -1,0 +1,7 @@
+# Secretos: JAMÁS a Git
+.env
+
+# Zips y carpetas de instalación temporales
+*.zip
+plan-cuentas/
+*.sqlite
