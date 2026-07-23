@@ -21,9 +21,13 @@
                     <x-nav-link :href="route('comprobantes.index')" :active="request()->routeIs('comprobantes.*')">
                         Comprobantes
                     </x-nav-link>
-                    <x-nav-link :href="route('reportes.libro-diario')" :active="request()->routeIs('reportes.*')">
+                    <x-nav-link :href="route('reportes.libro-diario')" :active="request()->routeIs('reportes.libro-diario')">
                         Libro diario
                     </x-nav-link>
+                 <x-nav-link :href="route('reportes.libro-mayor')" :active="request()->routeIs('reportes.libro-mayor*')">
+                        Libro mayor
+                </x-nav-link>
+
                 </div>
             </div>
 

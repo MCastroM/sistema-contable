@@ -42,6 +42,11 @@ Route::middleware(['auth', 'verified'])->group(function () {
         ->name('comprobantes.eliminar');
         Route::get('/reportes/libro-diario', [App\Http\Controllers\LibroDiarioController::class, 'index'])
         ->name('reportes.libro-diario');
+    Route::get('/reportes/libro-mayor', [App\Http\Controllers\LibroMayorController::class, 'index'])
+        ->name('reportes.libro-mayor');
+    Route::get('/reportes/libro-mayor/{cuenta}', [App\Http\Controllers\LibroMayorController::class, 'cuenta'])
+        ->name('reportes.libro-mayor.cuenta');
+
 });
 
 Route::middleware('auth')->group(function () {
