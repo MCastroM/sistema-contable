@@ -23,8 +23,15 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('/cuentas', [CuentaController::class, 'index'])->name('cuentas.index');
 
     // Comprobantes
+    // OJO con el orden: /comprobantes/crear debe declararse ANTES de
+    // /comprobantes/{comprobante}; si no, Laravel intentaría interpretar
+    // "crear" como un ID de comprobante -> 404.
     Route::get('/comprobantes', [ComprobanteController::class, 'index'])
         ->name('comprobantes.index');
+    Route::get('/comprobantes/crear', [ComprobanteController::class, 'create'])
+        ->name('comprobantes.create');
+    Route::post('/comprobantes', [ComprobanteController::class, 'store'])
+        ->name('comprobantes.store');
     Route::get('/comprobantes/{comprobante}', [ComprobanteController::class, 'show'])
         ->name('comprobantes.show');
     Route::post('/comprobantes/{comprobante}/aprobar', [ComprobanteController::class, 'aprobar'])

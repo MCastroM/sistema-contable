@@ -4,7 +4,13 @@
             <h2 class="font-semibold text-xl text-gray-800 dark:text-gray-200 leading-tight">
                 Comprobantes
             </h2>
-            <div class="text-sm text-gray-500 dark:text-gray-400">{{ $empresa->razon_social }}</div>
+            <div class="flex items-center gap-4">
+                <span class="text-sm text-gray-500 dark:text-gray-400">{{ $empresa->razon_social }}</span>
+                <a href="{{ route('comprobantes.create') }}"
+                   class="px-4 py-2 rounded-md bg-indigo-600 text-white text-sm font-medium hover:bg-indigo-700">
+                    + Nuevo comprobante
+                </a>
+            </div>
         </div>
     </x-slot>
 

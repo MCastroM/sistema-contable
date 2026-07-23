@@ -18,9 +18,6 @@ class ComprobanteController extends Controller
         $empresa = $this->empresaActiva();
 
         $comprobantes = $empresa->comprobantes()
-            // withSum evita el problema "N+1": calcula el total de cada
-            // comprobante EN LA MISMA consulta, en vez de una consulta extra
-            // por cada fila de la tabla.
             ->withSum('movimientos as total_debe', 'debe')
             ->with('periodo')
             ->when($request->filled('estado'),
@@ -28,7 +25,7 @@ class ComprobanteController extends Controller
             ->orderByDesc('fecha')
             ->orderByDesc('id')
             ->paginate(20)
-            ->withQueryString();   // conserva ?estado=... al cambiar de página
+            ->withQueryString();
 
         return view('comprobantes.index', [
             'empresa'       => $empresa,
@@ -44,9 +41,73 @@ class ComprobanteController extends Controller
     }
 
     /**
+     * Formulario de creación: entrega las cuentas imputables
+     * de la empresa activa para los selectores de línea.
+     */
+    public function create()
+    {
+        $empresa = $this->empresaActiva();
+
+        $cuentas = $empresa->cuentas()
+            ->imputables()
+            ->orderBy('codigo')
+            ->get(['id', 'codigo', 'nombre']);
+
+        return view('comprobantes.create', compact('empresa', 'cuentas'));
+    }
+
+    /**
+     * Recibe el formulario y delega la creación al servicio.
+     * El JavaScript del formulario AYUDA a cuadrar; las reglas
+     * de verdad las aplica el servicio (y la base) como siempre.
+     */
+    public function store(Request $request, ComprobanteService $servicio)
+    {
+        $empresa = $this->empresaActiva();
+
+        $validated = $request->validate([
+            'tipo'               => ['required', 'in:I,E,T'],
+            'fecha'              => ['required', 'date'],
+            'glosa'              => ['required', 'string', 'min:3', 'max:300'],
+            'lineas'             => ['required', 'array', 'min:2'],
+            'lineas.*.cuenta_id' => ['required', 'integer'],
+            'lineas.*.debe'      => ['nullable', 'numeric', 'min:0'],
+            'lineas.*.haber'     => ['nullable', 'numeric', 'min:0'],
+            'lineas.*.glosa'     => ['nullable', 'string', 'max:300'],
+        ], [
+            'lineas.min'      => 'Un comprobante requiere al menos 2 líneas.',
+            'lineas.required' => 'Agrega las líneas del asiento.',
+        ]);
+
+        // Normalizar: nulls a 0
+        $lineas = collect($validated['lineas'])->map(fn ($l) => [
+            'cuenta_id' => (int) $l['cuenta_id'],
+            'debe'      => $l['debe'] ?? 0,
+            'haber'     => $l['haber'] ?? 0,
+            'glosa'     => $l['glosa'] ?? null,
+        ])->all();
+
+        try {
+            $comprobante = $servicio->crearBorrador(
+                $empresa,
+                $validated['tipo'],
+                $validated['fecha'],
+                $validated['glosa'],
+                $lineas,
+            );
+
+            return redirect()
+                ->route('comprobantes.show', $comprobante)
+                ->with('status', "Borrador {$comprobante->folio()} creado. Revísalo y apruébalo cuando corresponda.");
+
+        } catch (\Throwable $e) {
+            // withInput conserva lo escrito para no perder el trabajo
+            return back()->withInput()->withErrors(['accion' => $e->getMessage()]);
+        }
+    }
+
+    /**
      * Detalle de un comprobante con sus líneas.
-     * Laravel inyecta el Comprobante automáticamente desde la URL
-     * (route model binding): /comprobantes/8 -> findOrFail(8).
      */
     public function show(Comprobante $comprobante)
     {
@@ -116,10 +177,7 @@ class ComprobanteController extends Controller
         return $empresa;
     }
 
-    /**
-     * Seguridad multiempresa: un comprobante de OTRA empresa
-     * no se puede ni ver ni tocar desde esta sesión.
-     */
+    /** Seguridad multiempresa: 403 si el comprobante es de otra empresa. */
     private function verificarEmpresa(Comprobante $comprobante): void
     {
         abort_if(
