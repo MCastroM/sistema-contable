@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\ComprobanteController;
 use App\Http\Controllers\CuentaController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\EmpresaController;
@@ -20,6 +21,18 @@ Route::middleware(['auth', 'verified'])->group(function () {
 
     // Plan de cuentas (de la empresa activa)
     Route::get('/cuentas', [CuentaController::class, 'index'])->name('cuentas.index');
+
+    // Comprobantes
+    Route::get('/comprobantes', [ComprobanteController::class, 'index'])
+        ->name('comprobantes.index');
+    Route::get('/comprobantes/{comprobante}', [ComprobanteController::class, 'show'])
+        ->name('comprobantes.show');
+    Route::post('/comprobantes/{comprobante}/aprobar', [ComprobanteController::class, 'aprobar'])
+        ->name('comprobantes.aprobar');
+    Route::post('/comprobantes/{comprobante}/anular', [ComprobanteController::class, 'anular'])
+        ->name('comprobantes.anular');
+    Route::delete('/comprobantes/{comprobante}', [ComprobanteController::class, 'eliminar'])
+        ->name('comprobantes.eliminar');
 });
 
 Route::middleware('auth')->group(function () {

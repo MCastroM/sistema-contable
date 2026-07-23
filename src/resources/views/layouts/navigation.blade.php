@@ -18,6 +18,9 @@
                     <x-nav-link :href="route('cuentas.index')" :active="request()->routeIs('cuentas.*')">
                         Plan de cuentas
                     </x-nav-link>
+                    <x-nav-link :href="route('comprobantes.index')" :active="request()->routeIs('comprobantes.*')">
+                        Comprobantes
+                    </x-nav-link>
                 </div>
             </div>
 
