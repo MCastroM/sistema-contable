@@ -10,6 +10,8 @@ use App\Http\Controllers\EmpresaAdminController;
 use App\Http\Controllers\PeriodoAdminController;
 use App\Http\Controllers\DocumentoCompraController;
 use App\Http\Controllers\ImportacionComprasController;
+use App\Http\Controllers\BoletaHonorarioController;
+use App\Http\Controllers\ImportacionHonorariosController;
 
 Route::get('/', function () {
     return redirect()->route('dashboard');
@@ -44,7 +46,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
         ->name('comprobantes.anular');
     Route::delete('/comprobantes/{comprobante}', [ComprobanteController::class, 'eliminar'])
         ->name('comprobantes.eliminar');
-        Route::get('/reportes/libro-diario', [App\Http\Controllers\LibroDiarioController::class, 'index'])
+    Route::get('/reportes/libro-diario', [App\Http\Controllers\LibroDiarioController::class, 'index'])
         ->name('reportes.libro-diario');
     Route::get('/reportes/libro-mayor', [App\Http\Controllers\LibroMayorController::class, 'index'])
         ->name('reportes.libro-mayor');
@@ -62,6 +64,16 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('/empresas/{empresa}/compras/importar', [ImportacionComprasController::class, 'form'])->name('compras.importar');
     Route::post('/empresas/{empresa}/compras/importar/previsualizar', [ImportacionComprasController::class, 'previsualizar'])->name('compras.importar.previsualizar');
     Route::post('/empresas/{empresa}/compras/importar/confirmar', [ImportacionComprasController::class, 'confirmar'])->name('compras.importar.confirmar');
+    // Honorarios
+    Route::get('/empresas/{empresa}/honorarios', [BoletaHonorarioController::class, 'index'])->name('honorarios.index');
+    Route::post('/empresas/{empresa}/honorarios', [BoletaHonorarioController::class, 'store'])->name('honorarios.store');
+    Route::delete('/empresas/{empresa}/honorarios/{boleta}', [BoletaHonorarioController::class, 'destroy'])->name('honorarios.destroy');
+    Route::post('/empresas/{empresa}/honorarios/{boleta}/cuenta', [BoletaHonorarioController::class, 'asignarCuenta'])->name('honorarios.asignar-cuenta');
+    Route::post('/empresas/{empresa}/honorarios/centralizar', [BoletaHonorarioController::class, 'centralizar'])->name('honorarios.centralizar');
+
+    Route::get('/empresas/{empresa}/honorarios/importar', [ImportacionHonorariosController::class, 'form'])->name('honorarios.importar');
+    Route::post('/empresas/{empresa}/honorarios/importar/previsualizar', [ImportacionHonorariosController::class, 'previsualizar'])->name('honorarios.importar.previsualizar');
+    Route::post('/empresas/{empresa}/honorarios/importar/confirmar', [ImportacionHonorariosController::class, 'confirmar'])->name('honorarios.importar.confirmar');
 
     // Empresas (administración)
     Route::get('/empresas', [EmpresaAdminController::class, 'index'])->name('empresas.index');

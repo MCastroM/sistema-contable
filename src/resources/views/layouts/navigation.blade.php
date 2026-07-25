@@ -36,6 +36,9 @@
                 <x-nav-link :href="route('compras.index', session('empresa_activa_id', 1))" :active="request()->routeIs('compras.*')">
                         Compras
                 </x-nav-link>
+                <x-nav-link :href="route('honorarios.index', session('empresa_activa_id', 1))" :active="request()->routeIs('honorarios.*')">
+                        Honorarios
+                </x-nav-link>
 
                 </div>
             </div>
