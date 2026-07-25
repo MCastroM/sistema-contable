@@ -46,7 +46,8 @@ Route::middleware(['auth', 'verified'])->group(function () {
         ->name('reportes.libro-mayor');
     Route::get('/reportes/libro-mayor/{cuenta}', [App\Http\Controllers\LibroMayorController::class, 'cuenta'])
         ->name('reportes.libro-mayor.cuenta');
-
+    Route::get('/reportes/balance-comprobacion', [App\Http\Controllers\BalanceComprobacionController::class, 'index'])
+        ->name('reportes.balance-comprobacion');
 });
 
 Route::middleware('auth')->group(function () {

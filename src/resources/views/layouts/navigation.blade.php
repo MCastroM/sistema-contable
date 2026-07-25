@@ -27,6 +27,9 @@
                  <x-nav-link :href="route('reportes.libro-mayor')" :active="request()->routeIs('reportes.libro-mayor*')">
                         Libro mayor
                 </x-nav-link>
+                <x-nav-link :href="route('reportes.balance-comprobacion')" :active="request()->routeIs('reportes.balance-comprobacion')">
+                        Balance de comprobación
+                </x-nav-link>
 
                 </div>
             </div>
