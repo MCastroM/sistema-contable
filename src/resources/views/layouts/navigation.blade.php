@@ -30,6 +30,12 @@
                 <x-nav-link :href="route('reportes.balance-comprobacion')" :active="request()->routeIs('reportes.balance-comprobacion')">
                         Balance de comprobación
                 </x-nav-link>
+                <x-nav-link :href="route('empresas.index')" :active="request()->routeIs('empresas.*')">
+                        Empresas
+                </x-nav-link>
+                <x-nav-link :href="route('compras.index', session('empresa_activa_id', 1))" :active="request()->routeIs('compras.*')">
+                        Compras
+                </x-nav-link>
 
                 </div>
             </div>

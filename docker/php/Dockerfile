@@ -19,6 +19,9 @@ RUN apk add --no-cache nodejs npm
 # - intl              : formateo de números/monedas (ej: pesos chilenos)
 # - bcmath            : aritmética de precisión (crítico en montos contables)
 # - zip, opcache, mbstring, xml : requeridas por Laravel y Composer
+RUN apk add --no-cache libpng-dev libjpeg-turbo-dev freetype-dev \
+    && docker-php-ext-configure gd --with-freetype --with-jpeg \
+    && docker-php-ext-install gd
 RUN docker-php-ext-install \
     pdo \
     pdo_pgsql \

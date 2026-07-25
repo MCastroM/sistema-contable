@@ -6,6 +6,10 @@ use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\EmpresaController;
 use App\Http\Controllers\ProfileController;
 use Illuminate\Support\Facades\Route;
+use App\Http\Controllers\EmpresaAdminController;
+use App\Http\Controllers\PeriodoAdminController;
+use App\Http\Controllers\DocumentoCompraController;
+use App\Http\Controllers\ImportacionComprasController;
 
 Route::get('/', function () {
     return redirect()->route('dashboard');
@@ -48,6 +52,35 @@ Route::middleware(['auth', 'verified'])->group(function () {
         ->name('reportes.libro-mayor.cuenta');
     Route::get('/reportes/balance-comprobacion', [App\Http\Controllers\BalanceComprobacionController::class, 'index'])
         ->name('reportes.balance-comprobacion');
+
+    Route::get('/empresas/{empresa}/compras', [DocumentoCompraController::class, 'index'])->name('compras.index');
+    Route::post('/empresas/{empresa}/compras', [DocumentoCompraController::class, 'store'])->name('compras.store');
+    Route::delete('/empresas/{empresa}/compras/{documento}', [DocumentoCompraController::class, 'destroy'])->name('compras.destroy');
+    Route::post('/empresas/{empresa}/compras/{documento}/cuenta', [DocumentoCompraController::class, 'asignarCuenta'])->name('compras.asignar-cuenta');
+    Route::post('/empresas/{empresa}/compras/centralizar', [DocumentoCompraController::class, 'centralizar'])->name('compras.centralizar');
+
+    Route::get('/empresas/{empresa}/compras/importar', [ImportacionComprasController::class, 'form'])->name('compras.importar');
+    Route::post('/empresas/{empresa}/compras/importar/previsualizar', [ImportacionComprasController::class, 'previsualizar'])->name('compras.importar.previsualizar');
+    Route::post('/empresas/{empresa}/compras/importar/confirmar', [ImportacionComprasController::class, 'confirmar'])->name('compras.importar.confirmar');
+
+    // Empresas (administración)
+    Route::get('/empresas', [EmpresaAdminController::class, 'index'])->name('empresas.index');
+    Route::get('/empresas/crear', [EmpresaAdminController::class, 'create'])->name('empresas.create');
+    Route::post('/empresas', [EmpresaAdminController::class, 'store'])->name('empresas.store');
+    Route::get('/empresas/{empresa}', [EmpresaAdminController::class, 'show'])->name('empresas.show');
+    Route::get('/empresas/{empresa}/editar', [EmpresaAdminController::class, 'edit'])->name('empresas.edit');
+    Route::put('/empresas/{empresa}', [EmpresaAdminController::class, 'update'])->name('empresas.update');
+    Route::post('/empresas/{empresa}/toggle-activa', [EmpresaAdminController::class, 'toggleActiva'])->name('empresas.toggle-activa');
+    Route::post('/empresas/{empresa}/instalar-plan', [EmpresaAdminController::class, 'instalarPlan'])->name('empresas.instalar-plan');
+
+    // Períodos (dentro del contexto de una empresa)
+    Route::post('/empresas/{empresa}/periodos/abrir', [PeriodoAdminController::class, 'abrir'])->name('periodos.abrir');
+    Route::post('/empresas/{empresa}/periodos/{periodo}/bloquear', [PeriodoAdminController::class, 'bloquear'])->name('periodos.bloquear');
+    Route::post('/empresas/{empresa}/periodos/{periodo}/cerrar', [PeriodoAdminController::class, 'cerrar'])->name('periodos.cerrar');
+    Route::post('/empresas/{empresa}/periodos/{periodo}/reabrir', [PeriodoAdminController::class, 'reabrir'])->name('periodos.reabrir');
+
+
+
 });
 
 Route::middleware('auth')->group(function () {
