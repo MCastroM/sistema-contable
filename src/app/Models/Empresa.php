@@ -10,7 +10,10 @@ class Empresa extends Model
     protected $table = 'empresas';
 
     protected $fillable = [
-        'rut', 'razon_social', 'giro', 'direccion', 'comuna', 'email', 'activa',
+    'rut', 'razon_social', 'giro', 'direccion', 'comuna', 'email', 'activa',
+    'cuenta_proveedores_id', 'cuenta_iva_credito_id', 'cuenta_iva_debito_id',
+    'cuenta_honorarios_pagar_id', 'cuenta_retencion_honorarios_id',
+    'cuenta_remuneraciones_pagar_id', 'cuenta_deudores_ventas_id',
     ];
 
     protected $casts = [
