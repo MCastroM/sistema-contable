@@ -45,14 +45,15 @@ class CentralizacionRemuneracionesService
         // La cuenta de GASTO (Remuneraciones) se resuelve por nombre en
         // el plan, en vez de agregar otra columna de configuración: es
         // la única de las 6 que siempre se llama igual en el plan estándar.
-        $cuentaGasto = $empresa->cuentas()->where('nombre', 'Remuneraciones')
+        $cuentaGasto = $empresa->cuentas()
+            ->whereIn('nombre', ['Remuneraciones', 'Sueldos'])
             ->where('clase', 'resultado')->first();
 
         if (! $cuentaGasto) {
             throw new \RuntimeException(
-                "No se encontró una cuenta de gasto llamada 'Remuneraciones' en el plan de {$empresa->razon_social}."
-            );
-        }
+                "No se encontró una cuenta de gasto llamada 'Remuneraciones' o 'Sueldos' en el plan de {$empresa->razon_social}."
+        );
+}
 
         $filas = RemuneracionTrabajador::where('empresa_id', $empresa->id)
             ->where('periodo_id', $periodo->id)

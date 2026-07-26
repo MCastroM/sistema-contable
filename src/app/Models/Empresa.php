@@ -14,6 +14,9 @@ class Empresa extends Model
     'cuenta_proveedores_id', 'cuenta_iva_credito_id', 'cuenta_iva_debito_id',
     'cuenta_honorarios_pagar_id', 'cuenta_retencion_honorarios_id',
     'cuenta_remuneraciones_pagar_id', 'cuenta_deudores_ventas_id',
+    'cuenta_impuesto_unico_id', 'cuenta_leyes_sociales_id',
+    'cuenta_anticipo_sueldo_id', 'cuenta_prestamo_personal_id',
+    'cuenta_ahorro_trabajador_id',
     ];
 
     protected $casts = [
