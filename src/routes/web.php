@@ -12,6 +12,8 @@ use App\Http\Controllers\DocumentoCompraController;
 use App\Http\Controllers\ImportacionComprasController;
 use App\Http\Controllers\BoletaHonorarioController;
 use App\Http\Controllers\ImportacionHonorariosController;
+use App\Http\Controllers\RemuneracionController;
+use App\Http\Controllers\ImportacionRemuneracionesController;
 
 Route::get('/', function () {
     return redirect()->route('dashboard');
@@ -74,6 +76,13 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('/empresas/{empresa}/honorarios/importar', [ImportacionHonorariosController::class, 'form'])->name('honorarios.importar');
     Route::post('/empresas/{empresa}/honorarios/importar/previsualizar', [ImportacionHonorariosController::class, 'previsualizar'])->name('honorarios.importar.previsualizar');
     Route::post('/empresas/{empresa}/honorarios/importar/confirmar', [ImportacionHonorariosController::class, 'confirmar'])->name('honorarios.importar.confirmar');
+
+// Remuneraciones
+    Route::get('/empresas/{empresa}/remuneraciones', [RemuneracionController::class, 'index'])->name('remuneraciones.index');
+    Route::delete('/empresas/{empresa}/remuneraciones/{trabajador}', [RemuneracionController::class, 'destroy'])->name('remuneraciones.destroy');
+    Route::post('/empresas/{empresa}/remuneraciones/centralizar', [RemuneracionController::class, 'centralizar'])->name('remuneraciones.centralizar');
+    Route::get('/empresas/{empresa}/remuneraciones/importar', [ImportacionRemuneracionesController::class, 'form'])->name('remuneraciones.importar');
+    Route::post('/empresas/{empresa}/remuneraciones/importar', [ImportacionRemuneracionesController::class, 'importar'])->name('remuneraciones.importar.subir');
 
     // Empresas (administración)
     Route::get('/empresas', [EmpresaAdminController::class, 'index'])->name('empresas.index');
