@@ -50,8 +50,6 @@ class EjecutorImportacionDiarioService
     private function importarUnComprobante(
         Empresa $empresa, Periodo $periodo, string $tipo, string $numeroOrigen, Collection $lineasCrudas
     ): Comprobante {
-        // Todas las líneas de un mismo comprobante deben compartir fecha;
-        // si vinieran distintas (dato sucio), usamos la primera válida.
         $fecha = $lineasCrudas->pluck('fecha')->filter()->first();
         if (! $fecha) {
             throw new \RuntimeException("Sin fecha válida en ninguna línea (revisar 'fecha_raw' original).");
@@ -66,22 +64,15 @@ class EjecutorImportacionDiarioService
             'glosa'     => $l['glosa'] ?: null,
         ])->values()->all();
 
-        return DB::transaction(function () use ($empresa, $periodo, $tipo, $fecha, $glosa, $lineas, $numeroOrigen) {
-            // crearBorrador ya valida: cuentas imputables, de la empresa,
-            // debe XOR haber por línea, y admiteFecha() del período.
-            $comprobante = $this->comprobantes->crearBorrador($empresa, $tipo, $fecha, $glosa, $lineas);
+        // PASO 1: crear el borrador (transacción propia vía ComprobanteService).
+        $comprobante = $this->comprobantes->crearBorrador($empresa, $tipo, $fecha, $glosa, $lineas);
+        $comprobante->update(['numero_origen' => $numeroOrigen]);
 
-            // aprobar() exige la cuadratura (debe=haber) — la MISMA
-            // regla que protege los comprobantes digitados a mano.
-            // Si el asiento histórico viene descuadrado, esto lanza
-            // la excepción y el comprobante queda como borrador (no
-            // se pierde: se puede corregir manualmente después).
-            $this->comprobantes->aprobar($comprobante);
+        // PASO 2: intentar aprobar, en transacción SEPARADA. Si falla
+        // por descuadre, el borrador del paso 1 YA quedó guardado.
+        $this->comprobantes->aprobar($comprobante);
 
-            $comprobante->update(['numero_origen' => $numeroOrigen]);
-
-            return $comprobante;
-        });
+        return $comprobante;
     }
 
     /** Traduce 'cod' -> 'cuenta_id' usando el mapeo ya resuelto para la empresa. */
