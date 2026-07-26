@@ -19,7 +19,7 @@ class Comprobante extends Model
     public const ANULADO  = 'anulado';
 
     protected $fillable = [
-        'empresa_id', 'periodo_id', 'tipo', 'numero', 'fecha', 'glosa',
+        'empresa_id', 'periodo_id', 'tipo', 'numero', 'numero_origen','fecha', 'glosa',
         'estado', 'creado_por', 'aprobado_por', 'aprobado_at',
     ];
 

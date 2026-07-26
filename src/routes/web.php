@@ -14,6 +14,7 @@ use App\Http\Controllers\BoletaHonorarioController;
 use App\Http\Controllers\ImportacionHonorariosController;
 use App\Http\Controllers\RemuneracionController;
 use App\Http\Controllers\ImportacionRemuneracionesController;
+use App\Http\Controllers\ImportacionDiarioController;
 
 Route::get('/', function () {
     return redirect()->route('dashboard');
@@ -77,12 +78,17 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::post('/empresas/{empresa}/honorarios/importar/previsualizar', [ImportacionHonorariosController::class, 'previsualizar'])->name('honorarios.importar.previsualizar');
     Route::post('/empresas/{empresa}/honorarios/importar/confirmar', [ImportacionHonorariosController::class, 'confirmar'])->name('honorarios.importar.confirmar');
 
-// Remuneraciones
+    // Remuneraciones
     Route::get('/empresas/{empresa}/remuneraciones', [RemuneracionController::class, 'index'])->name('remuneraciones.index');
     Route::delete('/empresas/{empresa}/remuneraciones/{trabajador}', [RemuneracionController::class, 'destroy'])->name('remuneraciones.destroy');
     Route::post('/empresas/{empresa}/remuneraciones/centralizar', [RemuneracionController::class, 'centralizar'])->name('remuneraciones.centralizar');
     Route::get('/empresas/{empresa}/remuneraciones/importar', [ImportacionRemuneracionesController::class, 'form'])->name('remuneraciones.importar');
     Route::post('/empresas/{empresa}/remuneraciones/importar', [ImportacionRemuneracionesController::class, 'importar'])->name('remuneraciones.importar.subir');
+    
+    // Importador del Diario histórico
+    Route::get('/empresas/{empresa}/diario/importar', [ImportacionDiarioController::class, 'form'])->name('diario.importar');
+    Route::post('/empresas/{empresa}/diario/importar/previsualizar', [ImportacionDiarioController::class, 'previsualizar'])->name('diario.importar.previsualizar');
+    Route::post('/empresas/{empresa}/diario/importar/confirmar', [ImportacionDiarioController::class, 'confirmar'])->name('diario.importar.confirmar');
 
     // Empresas (administración)
     Route::get('/empresas', [EmpresaAdminController::class, 'index'])->name('empresas.index');
@@ -99,8 +105,6 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::post('/empresas/{empresa}/periodos/{periodo}/bloquear', [PeriodoAdminController::class, 'bloquear'])->name('periodos.bloquear');
     Route::post('/empresas/{empresa}/periodos/{periodo}/cerrar', [PeriodoAdminController::class, 'cerrar'])->name('periodos.cerrar');
     Route::post('/empresas/{empresa}/periodos/{periodo}/reabrir', [PeriodoAdminController::class, 'reabrir'])->name('periodos.reabrir');
-
-
 
 });
 
