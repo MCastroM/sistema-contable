@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<style>
+    /* DomPDF: CSS simple, sin flexbox/grid. Tablas HTML clásicas. */
+    body { font-family: Helvetica, Arial, sans-serif; font-size: 8px; color: #222; }
+    .membrete-nombre { font-size: 11px; font-weight: bold; }
+    .membrete-linea { font-size: 8px; }
+    hr { border: none; border-top: 0.7px solid #000; margin: 4px 0 8px 0; }
+    h1 { text-align: center; font-size: 13px; margin: 4px 0 2px 0; }
+    .subt { text-align: center; font-size: 9px; margin: 0 0 10px 0; color: #444; }
+
+    table.datos { width: 100%; border-collapse: collapse; }
+    table.datos th, table.datos td {
+        border: 0.5px solid #999; padding: 2px 3px; font-size: 6.8px;
+    }
+    table.datos th { background: #ddd; text-align: center; }
+    table.datos td.num { text-align: right; font-family: 'Courier New', monospace; }
+    table.datos td.izq { text-align: left; }
+    tr.clase-header td {
+        background: #eee; font-weight: bold; font-size: 7.5px; padding: 3px;
+    }
+    tr.totales td {
+        background: #ccc; font-weight: bold; border-top: 1.5px solid #000;
+    }
+    .equilibrio { margin-top: 6px; font-size: 8px; }
+    .ok { color: #1a7a3c; font-weight: bold; }
+    .error { color: #b00020; font-weight: bold; }
+</style>
+</head>
+<body>
+
+    <div class="membrete-nombre">{{ $empresa->razon_social }}</div>
+    <div class="membrete-linea">R.U.T.: {{ $empresa->rut }} @if($empresa->giro) GIRO: {{ $empresa->giro }} @endif</div>
+    @if ($empresa->direccion)
+        <div class="membrete-linea">{{ $empresa->direccion }}</div>
+    @endif
+    <hr>
+
+    <h1>BALANCE TRIBUTARIO DE 8 COLUMNAS</h1>
+    <div class="subt">
+        Del {{ $desde->format('d-m-Y') }} al {{ $hasta->format('d-m-Y') }} · Solo comprobantes aprobados
+    </div>
+
+    <table class="datos">
+        <thead>
+            <tr>
+                <th rowspan="2">CÓDIGO</th>
+                <th rowspan="2">CUENTA</th>
+                <th colspan="2">SUMAS</th>
+                <th colspan="2">SALDOS</th>
+                <th colspan="2">INVENTARIO (BALANCE)</th>
+                <th colspan="2">RESULTADO (PÉRD. Y GAN.)</th>
+            </tr>
+            <tr>
+                <th>DEBE</th><th>HABER</th>
+                <th>DEUDOR</th><th>ACREEDOR</th>
+                <th>ACTIVO</th><th>PASIVO</th>
+                <th>PÉRDIDA</th><th>GANANCIA</th>
+            </tr>
+        </thead>
+        <tbody>
+            @php
+                $etiquetas = ['activo' => 'ACTIVO', 'pasivo' => 'PASIVO',
+                              'patrimonio' => 'PATRIMONIO', 'resultado' => 'RESULTADO (Ganancias y Pérdidas)'];
+                $fmt = fn ($v) => bccomp($v, '0', 2) === 1 ? number_format((float) $v, 0, ',', '.') : '';
+            @endphp
+            @foreach ($etiquetas as $clase => $etiqueta)
+                @continue(! $porClase->has($clase))
+                <tr class="clase-header"><td colspan="10">{{ $etiqueta }}</td></tr>
+                @foreach ($porClase[$clase] as $f)
+                    <tr>
+                        <td>{{ $f->cuenta->codigo }}</td>
+                        <td class="izq">{{ $f->cuenta->nombre }}</td>
+                        <td class="num">{{ $fmt($f->debe) }}</td>
+                        <td class="num">{{ $fmt($f->haber) }}</td>
+                        <td class="num">{{ $fmt($f->saldoDeudor) }}</td>
+                        <td class="num">{{ $fmt($f->saldoAcreedor) }}</td>
+                        <td class="num">{{ $fmt($f->activoCol) }}</td>
+                        <td class="num">{{ $fmt($f->pasivoCol) }}</td>
+                        <td class="num">{{ $fmt($f->perdidaCol) }}</td>
+                        <td class="num">{{ $fmt($f->ganciaCol) }}</td>
+                    </tr>
+                @endforeach
+            @endforeach
+
+            <tr class="totales">
+                <td colspan="2">TOTALES GENERALES</td>
+                <td class="num">{{ number_format((float) $totales['debe'], 0, ',', '.') }}</td>
+                <td class="num">{{ number_format((float) $totales['haber'], 0, ',', '.') }}</td>
+                <td class="num">{{ number_format((float) $totales['deudor'], 0, ',', '.') }}</td>
+                <td class="num">{{ number_format((float) $totales['acreedor'], 0, ',', '.') }}</td>
+                <td class="num">{{ number_format((float) $totales['activo'], 0, ',', '.') }}</td>
+                <td class="num">{{ number_format((float) $totales['pasivo'], 0, ',', '.') }}</td>
+                <td class="num">{{ number_format((float) $totales['perdida'], 0, ',', '.') }}</td>
+                <td class="num">{{ number_format((float) $totales['ganancia'], 0, ',', '.') }}</td>
+            </tr>
+        </tbody>
+    </table>
+
+    <div class="equilibrio">
+        @php
+            $cuadraSumas  = bccomp($totales['debe'], $totales['haber'], 2) === 0;
+            $cuadraSaldos = bccomp($totales['deudor'], $totales['acreedor'], 2) === 0;
+        @endphp
+        @if ($cuadraSumas && $cuadraSaldos)
+            <span class="ok">✔ Sumas iguales y saldos iguales: la contabilidad está en equilibrio.</span>
+        @else
+            <span class="error">✖ Descuadre detectado — revisar antes de emitir.</span>
+        @endif
+    </div>
+
+</body>
+</html>

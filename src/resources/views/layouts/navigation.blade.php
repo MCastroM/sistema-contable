@@ -45,6 +45,9 @@
                 <x-nav-link :href="route('diario.importar', session('empresa_activa_id', 1))" :active="request()->routeIs('diario.*')">
                     Importar Diario
                 </x-nav-link>
+                <x-nav-link :href="route('reportes.balance-8-columnas.pdf', session('empresa_activa_id', 1))" :active="false">
+                    Balance PDF
+                </x-nav-link>
                 </div>
             </div>
 

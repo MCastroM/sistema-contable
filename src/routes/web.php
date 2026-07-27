@@ -15,6 +15,8 @@ use App\Http\Controllers\ImportacionHonorariosController;
 use App\Http\Controllers\RemuneracionController;
 use App\Http\Controllers\ImportacionRemuneracionesController;
 use App\Http\Controllers\ImportacionDiarioController;
+use App\Http\Controllers\BalancePdfController;
+use App\Http\Controllers\MayorDiarioPdfController;
 
 Route::get('/', function () {
     return redirect()->route('dashboard');
@@ -89,6 +91,13 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('/empresas/{empresa}/diario/importar', [ImportacionDiarioController::class, 'form'])->name('diario.importar');
     Route::post('/empresas/{empresa}/diario/importar/previsualizar', [ImportacionDiarioController::class, 'previsualizar'])->name('diario.importar.previsualizar');
     Route::post('/empresas/{empresa}/diario/importar/confirmar', [ImportacionDiarioController::class, 'confirmar'])->name('diario.importar.confirmar');
+
+    // PDF: Balance de 8 columnas
+    Route::get('/empresas/{empresa}/reportes/balance-8-columnas/pdf', [BalancePdfController::class, 'generar'])
+        ->name('reportes.balance-8-columnas.pdf');
+        // PDF: Mayor + Diario
+    Route::get('/empresas/{empresa}/reportes/mayor-diario/pdf', [MayorDiarioPdfController::class, 'generar'])
+        ->name('reportes.mayor-diario.pdf');
 
     // Empresas (administración)
     Route::get('/empresas', [EmpresaAdminController::class, 'index'])->name('empresas.index');
