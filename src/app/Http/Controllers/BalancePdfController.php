@@ -68,8 +68,47 @@ class BalancePdfController extends Controller
             'ganancia' => $filas->reduce(fn ($a, $f) => bcadd($a, $f->ganciaCol, 2), '0'),
         ];
 
-        $pdf = Pdf::loadView('pdf.balance8', compact('empresa', 'porClase', 'totales', 'desde', 'hasta'))
-            ->setPaper('letter', 'landscape');
+        // ── Resultado del Ejercicio: la utilidad (o perdida) del periodo
+        //    se "inserta" en Activo/Pasivo Y en Perdida/Ganancia, para
+        //    demostrar que el sistema cuadra en su conjunto (no solo
+        //    columna por columna). Convencion clasica del balance de
+        //    8 columnas chileno. ──
+        $resultado = bcsub($totales['ganancia'], $totales['perdida'], 2);
+        $esUtilidad = bccomp($resultado, '0', 2) === 1;
+
+        if ($esUtilidad) {
+            // Utilidad: se suma al Pasivo (aumenta patrimonio) y a la
+            // Perdida (para igualar con Ganancia).
+            $plugActivo = '0'; $plugPasivo = $resultado;
+            $plugPerdida = $resultado; $plugGanancia = '0';
+        } elseif (bccomp($resultado, '0', 2) === -1) {
+            // Perdida neta: se suma al Activo y a la Ganancia.
+            $abs = bcmul($resultado, '-1', 2);
+            $plugActivo = $abs; $plugPasivo = '0';
+            $plugPerdida = '0'; $plugGanancia = $abs;
+        } else {
+            $plugActivo = $plugPasivo = $plugPerdida = $plugGanancia = '0';
+        }
+
+        $resultadoEjercicio = [
+            'activo' => $plugActivo, 'pasivo' => $plugPasivo,
+            'perdida' => $plugPerdida, 'ganancia' => $plugGanancia,
+        ];
+
+        $totalesIguales = [
+            'debe' => $totales['debe'], 'haber' => $totales['haber'],
+            'deudor' => $totales['deudor'], 'acreedor' => $totales['acreedor'],
+            'activo' => bcadd($totales['activo'], $plugActivo, 2),
+            'pasivo' => bcadd($totales['pasivo'], $plugPasivo, 2),
+            'perdida' => bcadd($totales['perdida'], $plugPerdida, 2),
+            'ganancia' => bcadd($totales['ganancia'], $plugGanancia, 2),
+        ];
+
+        $folio = $request->query('folio'); // folio manual mientras no existe el ensamblado completo (Paquete C)
+
+        $pdf = Pdf::loadView('pdf.balance8', compact(
+            'empresa', 'porClase', 'totales', 'resultadoEjercicio', 'totalesIguales', 'desde', 'hasta', 'folio'
+        ))->setPaper('letter', 'landscape');
 
         $nombreArchivo = "balance-8-columnas-{$empresa->rut}-{$hasta->format('Y-m')}.pdf";
 

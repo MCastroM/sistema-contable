@@ -5,9 +5,10 @@
 <style>
     /* DomPDF: CSS simple, sin flexbox/grid. Tablas HTML clásicas. */
     body { font-family: Helvetica, Arial, sans-serif; font-size: 8px; color: #222; }
-    .membrete-nombre { font-size: 11px; font-weight: bold; }
-    .membrete-linea { font-size: 8px; }
-    hr { border: none; border-top: 0.7px solid #000; margin: 4px 0 8px 0; }
+    .membrete-nombre { font-size: 11px; font-weight: bold; float: left; }
+    .membrete-folio { font-size: 10px; font-weight: bold; float: right; }
+    .membrete-linea { font-size: 8px; clear: both; }
+    hr { border: none; border-top: 0.7px solid #000; margin: 4px 0 8px 0; clear: both; }
     h1 { text-align: center; font-size: 13px; margin: 4px 0 2px 0; }
     .subt { text-align: center; font-size: 9px; margin: 0 0 10px 0; color: #444; }
 
@@ -32,13 +33,16 @@
 <body>
 
     <div class="membrete-nombre">{{ $empresa->razon_social }}</div>
+    @if ($folio)
+        <div class="membrete-folio">FOLIO N° {{ $folio }}</div>
+    @endif
     <div class="membrete-linea">R.U.T.: {{ $empresa->rut }} @if($empresa->giro) GIRO: {{ $empresa->giro }} @endif</div>
     @if ($empresa->direccion)
         <div class="membrete-linea">{{ $empresa->direccion }}</div>
     @endif
     <hr>
 
-    <h1>BALANCE TRIBUTARIO DE 8 COLUMNAS</h1>
+    <h1>BALANCE TRIBUTARIO DE 8 COLUMNAS - EJERCICIO {{ $hasta->format('Y') }}</h1>
     <div class="subt">
         Del {{ $desde->format('d-m-Y') }} al {{ $hasta->format('d-m-Y') }} · Solo comprobantes aprobados
     </div>
@@ -86,7 +90,7 @@
             @endforeach
 
             <tr class="totales">
-                <td colspan="2">TOTALES GENERALES</td>
+                <td colspan="2">SUMAS TOTALES</td>
                 <td class="num">{{ number_format((float) $totales['debe'], 0, ',', '.') }}</td>
                 <td class="num">{{ number_format((float) $totales['haber'], 0, ',', '.') }}</td>
                 <td class="num">{{ number_format((float) $totales['deudor'], 0, ',', '.') }}</td>
@@ -96,6 +100,29 @@
                 <td class="num">{{ number_format((float) $totales['perdida'], 0, ',', '.') }}</td>
                 <td class="num">{{ number_format((float) $totales['ganancia'], 0, ',', '.') }}</td>
             </tr>
+            @php $fmtP = fn ($v) => bccomp($v,'0',2)===1 ? number_format((float)$v,0,',','.') : '-'; @endphp
+            <tr class="resultado">
+                <td colspan="2">RESULTADO DEL EJERCICIO</td>
+                <td class="num">-</td>
+                <td class="num">-</td>
+                <td class="num">-</td>
+                <td class="num">-</td>
+                <td class="num">{{ $fmtP($resultadoEjercicio['activo']) }}</td>
+                <td class="num">{{ $fmtP($resultadoEjercicio['pasivo']) }}</td>
+                <td class="num">{{ $fmtP($resultadoEjercicio['perdida']) }}</td>
+                <td class="num">{{ $fmtP($resultadoEjercicio['ganancia']) }}</td>
+            </tr>
+            <tr class="totales-iguales">
+                <td colspan="2">TOTALES IGUALES</td>
+                <td class="num">{{ number_format((float) $totalesIguales['debe'], 0, ',', '.') }}</td>
+                <td class="num">{{ number_format((float) $totalesIguales['haber'], 0, ',', '.') }}</td>
+                <td class="num">{{ number_format((float) $totalesIguales['deudor'], 0, ',', '.') }}</td>
+                <td class="num">{{ number_format((float) $totalesIguales['acreedor'], 0, ',', '.') }}</td>
+                <td class="num">{{ number_format((float) $totalesIguales['activo'], 0, ',', '.') }}</td>
+                <td class="num">{{ number_format((float) $totalesIguales['pasivo'], 0, ',', '.') }}</td>
+                <td class="num">{{ number_format((float) $totalesIguales['perdida'], 0, ',', '.') }}</td>
+                <td class="num">{{ number_format((float) $totalesIguales['ganancia'], 0, ',', '.') }}</td>
+            </tr>
         </tbody>
     </table>
 
@@ -103,9 +130,11 @@
         @php
             $cuadraSumas  = bccomp($totales['debe'], $totales['haber'], 2) === 0;
             $cuadraSaldos = bccomp($totales['deudor'], $totales['acreedor'], 2) === 0;
+            $cuadraFinal  = bccomp($totalesIguales['activo'], $totalesIguales['pasivo'], 2) === 0
+                         && bccomp($totalesIguales['perdida'], $totalesIguales['ganancia'], 2) === 0;
         @endphp
-        @if ($cuadraSumas && $cuadraSaldos)
-            <span class="ok">✔ Sumas iguales y saldos iguales: la contabilidad está en equilibrio.</span>
+        @if ($cuadraSumas && $cuadraSaldos && $cuadraFinal)
+            <span class="ok">✔ Sumas iguales, saldos iguales y totales finales iguales: la contabilidad está en equilibrio.</span>
         @else
             <span class="error">✖ Descuadre detectado — revisar antes de emitir.</span>
         @endif
