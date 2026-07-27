@@ -52,18 +52,24 @@ class MayorDiarioPdfController extends Controller
             'haber' => $haberAnual,
         ];
 
-        $bloquesMayor = array_chunk($filasMayorArr, $filasMayor);
-        $bloquesDiario = array_chunk($filasDiarioArr, $filasDiario);
+        // IMPORTANTE: la fila de cierre (total general) NO debe generar
+        // una pagina nueva solo para ella -- se pega a la ultima pagina
+        // de contenido real. Separamos esa fila, dividimos el resto en
+        // bloques, y la agregamos al final del ULTIMO bloque.
+        $filaCierreMayor = array_pop($filasMayorArr);
+        $filaCierreDiario = array_pop($filasDiarioArr);
 
-        // ── PASO 1: DomPDF genera el contenido "en limpio" (sin encabezado) ──
-        $rutaMayor = storage_path('app/tmp_mayor_' . uniqid() . '.pdf');
-        $rutaDiario = storage_path('app/tmp_diario_' . uniqid() . '.pdf');
-
-        file_put_contents($rutaMayor, Pdf::loadView('pdf.mayor_contenido', compact('bloquesMayor'))
-            ->setPaper('letter', 'landscape')->output());
-
-        file_put_contents($rutaDiario, Pdf::loadView('pdf.diario_contenido', compact('bloquesDiario'))
-            ->setPaper('letter', 'landscape')->output());
+        // ── Auto-calibracion: en vez de adivinar cuantas filas caben
+        //    por pagina, RENDERIZAMOS y MEDIMOS las paginas reales que
+        //    genero DomPDF. Si hubo desborde (mas paginas reales que
+        //    bloques esperados), reducimos y reintentamos -- hasta que
+        //    coincidan exacto. Elimina el "prueba y error" manual. ──
+        [$rutaMayor, $bloquesMayor] = $this->generarConCalibracion(
+            'pdf.mayor_contenido', 'bloquesMayor', $filasMayorArr, $filaCierreMayor, $filasMayor
+        );
+        [$rutaDiario, $bloquesDiario] = $this->generarConCalibracion(
+            'pdf.diario_contenido', 'bloquesDiario', $filasDiarioArr, $filaCierreDiario, $filasDiario
+        );
 
         // ── PASO 2: FPDI importa cada página y le ESTAMPA el encabezado
         //    encima, en un bucle PHP normal — sin callbacks ni scripts
@@ -129,6 +135,51 @@ class MayorDiarioPdfController extends Controller
             'Content-Type' => 'application/pdf',
             'Content-Disposition' => 'inline; filename="' . $nombreArchivo . '"',
         ]);
+    }
+
+    /**
+     * Renderiza el contenido y MIDE cuantas paginas reales genero
+     * DomPDF (con FPDI, sin necesidad de importar cada pagina, solo
+     * contar). Si hubo desborde (mas paginas reales que bloques
+     * armados), reduce las filas por pagina y reintenta -- hasta que
+     * el conteo real coincida exacto con lo esperado. Asi eliminamos
+     * el ajuste manual por prueba y error.
+     */
+    private function generarConCalibracion(
+        string $vista, string $nombreVariable, array $filasPlanas, array $filaCierre, int $filasIniciales
+    ): array {
+        $intento = $filasIniciales;
+        $minimo = max(10, (int) ($filasIniciales / 3)); // limite de seguridad, evita loop infinito
+        $ruta = null;
+        $bloques = [];
+
+        while ($intento >= $minimo) {
+            $bloques = array_chunk($filasPlanas, $intento);
+            if (empty($bloques)) {
+                $bloques[] = [];
+            }
+            $bloques[count($bloques) - 1][] = $filaCierre;
+
+            if ($ruta) {
+                @unlink($ruta);
+            }
+            $ruta = storage_path('app/tmp_' . uniqid() . '.pdf');
+            file_put_contents($ruta, Pdf::loadView($vista, [$nombreVariable => $bloques])
+                ->setPaper('letter', 'landscape')->output());
+
+            $medidor = new Fpdi();
+            $paginasReales = $medidor->setSourceFile($ruta);
+
+            if ($paginasReales <= count($bloques)) {
+                // Sin desborde: las paginas reales caben en los bloques
+                // esperados (pueden ser incluso menos, nunca mas).
+                break;
+            }
+
+            $intento -= 3; // reducir y reintentar
+        }
+
+        return [$ruta, $bloques];
     }
 
     /**

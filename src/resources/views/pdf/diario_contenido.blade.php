@@ -11,7 +11,7 @@
     table.diario th { background: #ddd; text-align: center; }
     table.diario td.num { text-align: right; font-family: 'Courier New', monospace; }
     table.diario td.izq { text-align: left; }
-    tr.subtotal-asiento td { background: #eee; font-weight: bold; font-size: 6px; }
+    tr.subtotal-asiento td { background: #eee; font-weight: bold; font-size: 6.3px; padding: 1.3px 2px; }
     tr.total-general td { background: #ccc; font-weight: bold; border-top: 1.5px solid #000; font-size: 7.5px; }
 
     .pagina { page-break-before: always; }
