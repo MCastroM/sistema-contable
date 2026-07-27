@@ -17,6 +17,8 @@ use App\Http\Controllers\ImportacionRemuneracionesController;
 use App\Http\Controllers\ImportacionDiarioController;
 use App\Http\Controllers\BalancePdfController;
 use App\Http\Controllers\MayorDiarioPdfController;
+use App\Http\Controllers\DocumentoVentaController;
+use App\Http\Controllers\ImportacionVentasController;
 
 Route::get('/', function () {
     return redirect()->route('dashboard');
@@ -115,6 +117,16 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::post('/empresas/{empresa}/periodos/{periodo}/cerrar', [PeriodoAdminController::class, 'cerrar'])->name('periodos.cerrar');
     Route::post('/empresas/{empresa}/periodos/{periodo}/reabrir', [PeriodoAdminController::class, 'reabrir'])->name('periodos.reabrir');
 
+     // Ventas
+    Route::get('/empresas/{empresa}/ventas', [DocumentoVentaController::class, 'index'])->name('ventas.index');
+    Route::post('/empresas/{empresa}/ventas', [DocumentoVentaController::class, 'store'])->name('ventas.store');
+    Route::delete('/empresas/{empresa}/ventas/{documento}', [DocumentoVentaController::class, 'destroy'])->name('ventas.destroy');
+    Route::post('/empresas/{empresa}/ventas/{documento}/cuenta', [DocumentoVentaController::class, 'asignarCuenta'])->name('ventas.asignar-cuenta');
+    Route::post('/empresas/{empresa}/ventas/centralizar', [DocumentoVentaController::class, 'centralizar'])->name('ventas.centralizar');
+
+    Route::get('/empresas/{empresa}/ventas/importar', [ImportacionVentasController::class, 'form'])->name('ventas.importar');
+    Route::post('/empresas/{empresa}/ventas/importar/previsualizar', [ImportacionVentasController::class, 'previsualizar'])->name('ventas.importar.previsualizar');
+    Route::post('/empresas/{empresa}/ventas/importar/confirmar', [ImportacionVentasController::class, 'confirmar'])->name('ventas.importar.confirmar');
 });
 
 Route::middleware('auth')->group(function () {

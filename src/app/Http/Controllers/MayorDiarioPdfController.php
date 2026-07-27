@@ -77,7 +77,7 @@ class MayorDiarioPdfController extends Controller
         $pdf = new Fpdi('L', 'mm', [279.4, 215.9]); // Carta apaisado
         $pdf->SetAutoPageBreak(false);
 
-        $empNombre = $this->latin1($empresa->razon_social);
+        $empNombre = $this->latin1(preg_replace('/\s*\(PRUEBA\)\s*$/i', '', $empresa->razon_social));
         $empRutGiro = $this->latin1('R.U.T.: ' . $empresa->rut . ($empresa->giro ? ' GIRO: ' . $empresa->giro : ''));
         $empDireccion = $this->latin1($empresa->direccion ?? '');
         $tituloMayor = $this->latin1('LIBRO MAYOR - ' . mb_strtoupper($desde->translatedFormat('F Y')));

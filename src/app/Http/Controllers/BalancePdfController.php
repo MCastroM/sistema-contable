@@ -105,9 +105,10 @@ class BalancePdfController extends Controller
         ];
 
         $folio = $request->query('folio'); // folio manual mientras no existe el ensamblado completo (Paquete C)
+        $empNombreImpresion = preg_replace('/\s*\(PRUEBA\)\s*$/i', '', $empresa->razon_social);
 
         $pdf = Pdf::loadView('pdf.balance8', compact(
-            'empresa', 'porClase', 'totales', 'resultadoEjercicio', 'totalesIguales', 'desde', 'hasta', 'folio'
+            'empresa', 'porClase', 'totales', 'resultadoEjercicio', 'totalesIguales', 'desde', 'hasta', 'folio', 'empNombreImpresion'
         ))->setPaper('letter', 'landscape');
 
         $nombreArchivo = "balance-8-columnas-{$empresa->rut}-{$hasta->format('Y-m')}.pdf";

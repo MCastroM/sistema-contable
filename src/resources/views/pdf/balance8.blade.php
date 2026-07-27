@@ -8,22 +8,28 @@
     .membrete-nombre { font-size: 11px; font-weight: bold; float: left; }
     .membrete-folio { font-size: 10px; font-weight: bold; float: right; }
     .membrete-linea { font-size: 8px; clear: both; }
-    hr { border: none; border-top: 0.7px solid #000; margin: 4px 0 8px 0; clear: both; }
-    h1 { text-align: center; font-size: 13px; margin: 4px 0 2px 0; }
-    .subt { text-align: center; font-size: 9px; margin: 0 0 10px 0; color: #444; }
+    hr { border: none; border-top: 0.7px solid #000; margin: 3px 0 5px 0; clear: both; }
+    h1 { text-align: center; font-size: 12px; margin: 2px 0 1px 0; }
+    .subt { text-align: center; font-size: 8px; margin: 0 0 5px 0; color: #444; }
 
     table.datos { width: 100%; border-collapse: collapse; }
     table.datos th, table.datos td {
-        border: 0.5px solid #999; padding: 2px 3px; font-size: 6.8px;
+        border: 0.5px solid #999; padding: 1px 3px; font-size: 6.3px;
     }
     table.datos th { background: #ddd; text-align: center; }
     table.datos td.num { text-align: right; font-family: 'Courier New', monospace; }
     table.datos td.izq { text-align: left; }
     tr.clase-header td {
-        background: #eee; font-weight: bold; font-size: 7.5px; padding: 3px;
+        background: #eee; font-weight: bold; font-size: 7px; padding: 2px;
     }
     tr.totales td {
-        background: #ccc; font-weight: bold; border-top: 1.5px solid #000;
+        background: #ccc; font-weight: bold; border-top: 1.5px solid #000; padding: 1.3px 3px;
+    }
+    tr.resultado td {
+        background: #f5f5f5; font-style: italic; padding: 1.3px 3px;
+    }
+    tr.totales-iguales td {
+        background: #ccc; font-weight: bold; border-top: 1px solid #000; padding: 1.3px 3px;
     }
     .equilibrio { margin-top: 6px; font-size: 8px; }
     .ok { color: #1a7a3c; font-weight: bold; }
@@ -32,7 +38,7 @@
 </head>
 <body>
 
-    <div class="membrete-nombre">{{ $empresa->razon_social }}</div>
+    <div class="membrete-nombre">{{ $empNombreImpresion }}</div>
     @if ($folio)
         <div class="membrete-folio">FOLIO N° {{ $folio }}</div>
     @endif
@@ -43,9 +49,6 @@
     <hr>
 
     <h1>BALANCE TRIBUTARIO DE 8 COLUMNAS - EJERCICIO {{ $hasta->format('Y') }}</h1>
-    <div class="subt">
-        Del {{ $desde->format('d-m-Y') }} al {{ $hasta->format('d-m-Y') }} · Solo comprobantes aprobados
-    </div>
 
     <table class="datos">
         <thead>
@@ -125,20 +128,6 @@
             </tr>
         </tbody>
     </table>
-
-    <div class="equilibrio">
-        @php
-            $cuadraSumas  = bccomp($totales['debe'], $totales['haber'], 2) === 0;
-            $cuadraSaldos = bccomp($totales['deudor'], $totales['acreedor'], 2) === 0;
-            $cuadraFinal  = bccomp($totalesIguales['activo'], $totalesIguales['pasivo'], 2) === 0
-                         && bccomp($totalesIguales['perdida'], $totalesIguales['ganancia'], 2) === 0;
-        @endphp
-        @if ($cuadraSumas && $cuadraSaldos && $cuadraFinal)
-            <span class="ok">✔ Sumas iguales, saldos iguales y totales finales iguales: la contabilidad está en equilibrio.</span>
-        @else
-            <span class="error">✖ Descuadre detectado — revisar antes de emitir.</span>
-        @endif
-    </div>
 
 </body>
 </html>
