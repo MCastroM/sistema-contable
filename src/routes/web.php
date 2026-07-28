@@ -19,6 +19,8 @@ use App\Http\Controllers\BalancePdfController;
 use App\Http\Controllers\MayorDiarioPdfController;
 use App\Http\Controllers\DocumentoVentaController;
 use App\Http\Controllers\ImportacionVentasController;
+use App\Http\Controllers\AperturaAnualPdfController;
+use App\Http\Controllers\CierreEjercicioController;
 
 Route::get('/', function () {
     return redirect()->route('dashboard');
@@ -127,6 +129,14 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('/empresas/{empresa}/ventas/importar', [ImportacionVentasController::class, 'form'])->name('ventas.importar');
     Route::post('/empresas/{empresa}/ventas/importar/previsualizar', [ImportacionVentasController::class, 'previsualizar'])->name('ventas.importar.previsualizar');
     Route::post('/empresas/{empresa}/ventas/importar/confirmar', [ImportacionVentasController::class, 'confirmar'])->name('ventas.importar.confirmar');
+
+    // PDF: Apertura anual (hojas en blanco + Balance de 8 columnas)
+    Route::get('/empresas/{empresa}/reportes/apertura-anual/pdf', [AperturaAnualPdfController::class, 'generar'])
+        ->name('reportes.apertura-anual.pdf');
+
+    // Cierre de ejercicio
+    Route::post('/empresas/{empresa}/cierre-ejercicio', [CierreEjercicioController::class, 'cerrar'])
+        ->name('empresas.cierre-ejercicio');
 });
 
 Route::middleware('auth')->group(function () {

@@ -25,23 +25,60 @@ class BalancePdfController extends Controller
         // período + saldo final, ya con signo ajustado por naturaleza.
         $indice = $saldos->indice($empresa, $desde, $hasta);
 
+        // IMPORTANTE: indice() SOLO devuelve cuentas con movimiento en el
+        // período (correcto para el Libro Mayor). Un Balance, en cambio,
+        // debe mostrar TODAS las cuentas con saldo distinto de cero, tengan
+        // o no actividad este año -- si no, una cuenta con saldo arrastrado
+        // de un año anterior "desaparece" del balance sin dejar rastro,
+        // rompiendo la igualdad Deudor=Acreedor. Agregamos esas cuentas
+        // "dormidas" (saldo arrastrado, sin movimiento este período).
+        $idsConMovimiento = $indice->pluck('cuenta.id')->all();
+        $todasImputables = $empresa->cuentas()->where('imputable', true)->get();
+
+        foreach ($todasImputables as $cuenta) {
+            if (in_array($cuenta->id, $idsConMovimiento, true)) {
+                continue;
+            }
+            $anterior = $saldos->saldoAnterior($cuenta, $desde);
+            $saldoAnteriorNeto = $saldos->saldoNeto($cuenta, $anterior['debe'], $anterior['haber']);
+            if (bccomp($saldoAnteriorNeto, '0', 2) === 0) {
+                continue; // sin saldo, no aporta nada al balance
+            }
+            $indice->push((object) [
+                'cuenta'        => $cuenta,
+                'saldoAnterior' => $saldoAnteriorNeto,
+                'debe'          => '0',
+                'haber'         => '0',
+                'saldoFinal'    => $saldoAnteriorNeto,
+                'esDeudora'     => $saldos->esDeudora($cuenta),
+            ]);
+        }
+
         $filas = $indice->map(function ($f) {
-            // Signo REAL (debe-haber acumulado), no el ajustado por naturaleza,
-            // igual que en el Balance de Comprobación web.
+            $clase = $f->cuenta->clase;
+
+            // NOTA IMPORTANTE: se evaluo tratar las cuentas de Resultado
+            // con "solo el periodo" (ya que en teoria no deberian arrastrar
+            // saldo entre ejercicios) -- pero eso ROMPE la garantia de
+            // partida doble (Deudor=Acreedor) porque ABSAL nunca hizo un
+            // CIERRE DE EJERCICIO formal entre 2020 y 2021 (no hay asiento
+            // que traspase la utilidad/perdida del año a Patrimonio y deje
+            // las cuentas de resultado en cero). Mientras no exista ese
+            // cierre, TODAS las cuentas deben usar el mismo criterio
+            // (acumulado historico) para que el balance cuadre matematicamente.
             $real = $f->esDeudora ? $f->saldoFinal : bcmul($f->saldoFinal, '-1', 2);
+
             $saldoDeudor   = bccomp($real, '0', 2) === 1  ? $real : '0';
             $saldoAcreedor = bccomp($real, '0', 2) === -1 ? bcmul($real, '-1', 2) : '0';
 
-            // Columnas 5-8: Inventario (Activo/Pasivo) y Resultado (Pérdida/Ganancia)
-            $clase = $f->cuenta->clase;
             $activoCol = $pasivoCol = $perdidaCol = $ganciaCol = '0';
 
             if ($clase === 'activo') {
                 $activoCol = $saldoDeudor;
-                $pasivoCol = $saldoAcreedor; // contrario, si lo hubiera
+                $pasivoCol = $saldoAcreedor;
             } elseif (in_array($clase, ['pasivo', 'patrimonio'])) {
                 $pasivoCol = $saldoAcreedor;
-                $activoCol = $saldoDeudor; // contrario, si lo hubiera
+                $activoCol = $saldoDeudor;
             } elseif ($clase === 'resultado') {
                 $perdidaCol = $saldoDeudor;
                 $ganciaCol  = $saldoAcreedor;
