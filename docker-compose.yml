@@ -19,6 +19,25 @@ services:
     networks:
       - app-network
 
+   # ── Scheduler: ejecuta el cron de Laravel cada minuto ──────────
+  scheduler:
+    build:
+      context: ./docker/php
+    container_name: contable_scheduler
+    volumes:
+      - ./src:/var/www/html
+    depends_on:
+      db:
+        condition: service_healthy
+    entrypoint: >
+      sh -c "while true; do
+        php /var/www/html/artisan schedule:run --verbose --no-interaction;
+        sleep 60;
+      done"
+    restart: unless-stopped
+    networks:
+      - app-network
+
   # ── Nginx: servidor web, recibe las peticiones HTTP ────────────
   nginx:
     image: nginx:1.27-alpine

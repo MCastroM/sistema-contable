@@ -13,7 +13,10 @@
                 <!-- Navigation Links -->
                 <div class="hidden space-x-8 sm:-my-px sm:ms-10 sm:flex">
                     <x-nav-link :href="route('dashboard')" :active="request()->routeIs('dashboard')">
-                        {{ __('Dashboard') }}
+                        {{ __('Inicio') }}
+                    </x-nav-link>
+                    <x-nav-link :href="route('empresas.index')" :active="request()->routeIs('empresas.*')">
+                        Empresas
                     </x-nav-link>
                     <x-nav-link :href="route('cuentas.index')" :active="request()->routeIs('cuentas.*')">
                         Plan de cuentas
@@ -24,33 +27,30 @@
                     <x-nav-link :href="route('reportes.libro-diario')" :active="request()->routeIs('reportes.libro-diario')">
                         Libro diario
                     </x-nav-link>
-                 <x-nav-link :href="route('reportes.libro-mayor')" :active="request()->routeIs('reportes.libro-mayor*')">
+                    <x-nav-link :href="route('reportes.libro-mayor')" :active="request()->routeIs('reportes.libro-mayor*')">
                         Libro mayor
-                </x-nav-link>
-                <x-nav-link :href="route('reportes.balance-comprobacion')" :active="request()->routeIs('reportes.balance-comprobacion')">
-                        Balance de comprobación
-                </x-nav-link>
-                <x-nav-link :href="route('empresas.index')" :active="request()->routeIs('empresas.*')">
-                        Empresas
-                </x-nav-link>
-                <x-nav-link :href="route('compras.index', session('empresa_activa_id', 1))" :active="request()->routeIs('compras.*')">
+                    </x-nav-link>
+                    <x-nav-link :href="route('reportes.balance-comprobacion')" :active="request()->routeIs('reportes.balance-comprobacion')">
+                        Balance de 8 columnas
+                    </x-nav-link>
+                    <x-nav-link :href="route('compras.index', session('empresa_activa_id', 1))" :active="request()->routeIs('compras.*')">
                         Compras
-                </x-nav-link>
-                <x-nav-link :href="route('honorarios.index', session('empresa_activa_id', 1))" :active="request()->routeIs('honorarios.*')">
+                    </x-nav-link>
+                    <x-nav-link :href="route('honorarios.index', session('empresa_activa_id', 1))" :active="request()->routeIs('honorarios.*')">
                         Honorarios
-                </x-nav-link>
-                <x-nav-link :href="route('remuneraciones.index', session('empresa_activa_id', 1))" :active="request()->routeIs('remuneraciones.*')">
-                    Remuneraciones
-                </x-nav-link>
-                <x-nav-link :href="route('diario.importar', session('empresa_activa_id', 1))" :active="request()->routeIs('diario.*')">
-                    Importar Diario
-                </x-nav-link>
-                <x-nav-link :href="route('reportes.balance-8-columnas.pdf', session('empresa_activa_id', 1))" :active="false">
-                    Balance PDF
-                </x-nav-link>
-                <x-nav-link :href="route('ventas.index', session('empresa_activa_id', 1))" :active="request()->routeIs('ventas.*')">
-                    Ventas
-                </x-nav-link>              
+                    </x-nav-link>
+                    <x-nav-link :href="route('remuneraciones.index', session('empresa_activa_id', 1))" :active="request()->routeIs('remuneraciones.*')">
+                        Remuneraciones
+                    </x-nav-link>
+                    <x-nav-link :href="route('ventas.index', session('empresa_activa_id', 1))" :active="request()->routeIs('ventas.*')">
+                        Ventas
+                    </x-nav-link>
+                    <x-nav-link :href="route('diario.importar', session('empresa_activa_id', 1))" :active="request()->routeIs('diario.*')">
+                        Importar Diario
+                    </x-nav-link>
+                    <x-nav-link :href="route('reportes.balance-8-columnas.pdf', session('empresa_activa_id', 1))" :active="false">
+                        Balance PDF
+                    </x-nav-link>
                 </div>
             </div>
 
@@ -104,7 +104,7 @@
     <div :class="{'block': open, 'hidden': ! open}" class="hidden sm:hidden">
         <div class="pt-2 pb-3 space-y-1">
             <x-responsive-nav-link :href="route('dashboard')" :active="request()->routeIs('dashboard')">
-                {{ __('Dashboard') }}
+                {{ __('Inicio') }}
             </x-responsive-nav-link>
         </div>
 

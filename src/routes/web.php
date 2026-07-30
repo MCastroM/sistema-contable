@@ -21,6 +21,7 @@ use App\Http\Controllers\DocumentoVentaController;
 use App\Http\Controllers\ImportacionVentasController;
 use App\Http\Controllers\AperturaAnualPdfController;
 use App\Http\Controllers\CierreEjercicioController;
+use App\Http\Controllers\LibroAuxiliarPdfController;
 
 Route::get('/', function () {
     return redirect()->route('dashboard');
@@ -36,6 +37,13 @@ Route::middleware(['auth', 'verified'])->group(function () {
 
     // Plan de cuentas (de la empresa activa)
     Route::get('/cuentas', [CuentaController::class, 'index'])->name('cuentas.index');
+    // IMPORTANTE: /cuentas/crear debe ir ANTES de cualquier ruta con
+    // {cuenta}, igual que con /comprobantes/crear.
+    Route::get('/cuentas/crear', [CuentaController::class, 'create'])->name('cuentas.create');
+    Route::post('/cuentas', [CuentaController::class, 'store'])->name('cuentas.store');
+    Route::get('/cuentas/{cuenta}/editar', [CuentaController::class, 'edit'])->name('cuentas.edit');
+    Route::put('/cuentas/{cuenta}', [CuentaController::class, 'update'])->name('cuentas.update');
+    Route::post('/cuentas/{cuenta}/toggle-activa', [CuentaController::class, 'toggleActiva'])->name('cuentas.toggle-activa');
 
     // Comprobantes
     // OJO con el orden: /comprobantes/crear debe declararse ANTES de
@@ -47,8 +55,15 @@ Route::middleware(['auth', 'verified'])->group(function () {
         ->name('comprobantes.create');
     Route::post('/comprobantes', [ComprobanteController::class, 'store'])
         ->name('comprobantes.store');
+
+    Route::get('/comprobantes/{comprobante}/editar', [ComprobanteController::class, 'edit'])
+        ->name('comprobantes.edit');
+    Route::put('/comprobantes/{comprobante}', [ComprobanteController::class, 'update'])
+        ->name('comprobantes.update');
+
     Route::get('/comprobantes/{comprobante}', [ComprobanteController::class, 'show'])
         ->name('comprobantes.show');
+
     Route::post('/comprobantes/{comprobante}/aprobar', [ComprobanteController::class, 'aprobar'])
         ->name('comprobantes.aprobar');
     Route::post('/comprobantes/{comprobante}/anular', [ComprobanteController::class, 'anular'])
@@ -137,6 +152,10 @@ Route::middleware(['auth', 'verified'])->group(function () {
     // Cierre de ejercicio
     Route::post('/empresas/{empresa}/cierre-ejercicio', [CierreEjercicioController::class, 'cerrar'])
         ->name('empresas.cierre-ejercicio');
+
+     // PDF: Libros auxiliares (Compras, Honorarios, Remuneraciones, Ventas)
+    Route::get('/empresas/{empresa}/reportes/libro-auxiliar/{tipo}/pdf', [LibroAuxiliarPdfController::class, 'generar'])
+        ->name('reportes.libro-auxiliar.pdf');
 });
 
 Route::middleware('auth')->group(function () {

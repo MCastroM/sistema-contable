@@ -4,6 +4,10 @@ namespace App\Services;
 
 use App\Models\Empresa;
 use Carbon\Carbon;
+use App\Models\DocumentoCompra;
+use App\Models\BoletaHonorario;
+use App\Models\RemuneracionTrabajador;
+use App\Models\DocumentoVenta;
 
 class PdfContableService
 {
@@ -97,6 +101,110 @@ class PdfContableService
                         'debe' => $c['totalDebe'], 'haber' => $c['totalHaber'], 'saldo' => $c['saldoFinal']];
         }
         $filas[] = ['tipo' => 'total_general', 'debe' => $mayor['totalDebe'], 'haber' => $mayor['totalHaber']];
+
+        return $filas;
+    }
+
+    // ── COMPRAS ──
+    public function comprasFilasPlanas(Empresa $empresa, Carbon $desde, Carbon $hasta): array
+    {
+        $docs = DocumentoCompra::where('empresa_id', $empresa->id)
+            ->whereHas('periodo', fn ($q) => $q->where('anio', $desde->year))
+            ->whereBetween('mes', [$desde->month, $hasta->month])
+            ->orderBy('nro')
+            ->get();
+
+        $filas = [];
+        $totalExento = '0'; $totalNeto = '0'; $totalIva = '0'; $totalGeneral = '0';
+
+        foreach ($docs as $d) {
+            $filas[] = ['tipo' => 'doc', 'doc' => $d];
+            $totalExento = bcadd($totalExento, (string) $d->exento, 2);
+            $totalNeto = bcadd($totalNeto, (string) $d->neto, 2);
+            $totalIva = bcadd($totalIva, (string) $d->iva, 2);
+            $totalGeneral = bcadd($totalGeneral, (string) $d->total, 2);
+        }
+
+        $filas[] = ['tipo' => 'total_general', 'exento' => $totalExento, 'neto' => $totalNeto,
+                    'iva' => $totalIva, 'total' => $totalGeneral];
+
+        return $filas;
+    }
+
+    // ── HONORARIOS ──
+    public function honorariosFilasPlanas(Empresa $empresa, Carbon $desde, Carbon $hasta): array
+    {
+        $boletas = BoletaHonorario::where('empresa_id', $empresa->id)
+            ->whereHas('periodo', fn ($q) => $q->where('anio', $desde->year))
+            ->whereBetween('mes', [$desde->month, $hasta->month])
+            ->orderBy('nro')
+            ->get();
+
+        $filas = [];
+        $totalBrutos = '0'; $totalRetencion = '0'; $totalGeneral = '0';
+
+        foreach ($boletas as $b) {
+            $filas[] = ['tipo' => 'boleta', 'boleta' => $b];
+            $totalBrutos = bcadd($totalBrutos, (string) $b->brutos, 2);
+            $totalRetencion = bcadd($totalRetencion, (string) $b->retencion, 2);
+            $totalGeneral = bcadd($totalGeneral, (string) $b->total, 2);
+        }
+
+        $filas[] = ['tipo' => 'total_general', 'brutos' => $totalBrutos,
+                    'retencion' => $totalRetencion, 'total' => $totalGeneral];
+
+        return $filas;
+    }
+
+    // ── REMUNERACIONES ──
+    public function remuneracionesFilasPlanas(Empresa $empresa, Carbon $desde, Carbon $hasta): array
+    {
+        $trabajadores = RemuneracionTrabajador::where('empresa_id', $empresa->id)
+            ->whereHas('periodo', fn ($q) => $q->where('anio', $desde->year))
+            ->whereBetween('mes', [$desde->month, $hasta->month])
+            ->orderBy('mes')->orderBy('nro')
+            ->get();
+
+        $filas = [];
+        $campos = ['sueldo','gratificacion','movilizacion','colacion','otros_haberes',
+                'total_haberes','afp','salud','cesantia','impuesto_unico',
+                'prestamo','anticipo','liquido'];
+        $totales = array_fill_keys($campos, '0');
+
+        foreach ($trabajadores as $t) {
+            $filas[] = ['tipo' => 'trabajador', 'trabajador' => $t];
+            foreach ($campos as $c) {
+                $totales[$c] = bcadd($totales[$c], (string) $t->$c, 2);
+            }
+        }
+
+        $filas[] = array_merge(['tipo' => 'total_general'], $totales);
+
+        return $filas;
+    }
+
+    // ── VENTAS ──
+    public function ventasFilasPlanas(Empresa $empresa, Carbon $desde, Carbon $hasta): array
+    {
+        $docs = DocumentoVenta::where('empresa_id', $empresa->id)
+            ->whereHas('periodo', fn ($q) => $q->where('anio', $desde->year))
+            ->whereBetween('mes', [$desde->month, $hasta->month])
+            ->orderBy('nro')
+            ->get();
+
+        $filas = [];
+        $totalExento = '0'; $totalNeto = '0'; $totalIva = '0'; $totalGeneral = '0';
+
+        foreach ($docs as $d) {
+            $filas[] = ['tipo' => 'doc', 'doc' => $d];
+            $totalExento = bcadd($totalExento, (string) $d->exento, 2);
+            $totalNeto = bcadd($totalNeto, (string) $d->neto, 2);
+            $totalIva = bcadd($totalIva, (string) $d->iva, 2);
+            $totalGeneral = bcadd($totalGeneral, (string) $d->total, 2);
+        }
+
+        $filas[] = ['tipo' => 'total_general', 'exento' => $totalExento, 'neto' => $totalNeto,
+                    'iva' => $totalIva, 'total' => $totalGeneral];
 
         return $filas;
     }

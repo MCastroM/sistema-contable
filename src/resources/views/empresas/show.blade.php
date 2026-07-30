@@ -118,7 +118,19 @@
                             </div>
 
                             @if (! $p->estaCerrado())
-                                <div class="grid grid-cols-1 md:grid-cols-2 gap-4 pt-3 border-t border-gray-100 dark:border-gray-700">
+                                <div class="grid grid-cols-1 md:grid-cols-3 gap-4 pt-3 border-t border-gray-100 dark:border-gray-700">
+
+                                    {{-- Generar asiento de cierre del ejercicio (traspaso de resultado) --}}
+                                    <form method="POST" action="{{ route('empresas.cierre-ejercicio', $empresa) }}"
+                                          onsubmit="return confirm('¿Generar el asiento de CIERRE DEL EJERCICIO {{ $p->anio }}? Dejará en cero las cuentas de Resultado y traspasará la utilidad/pérdida a Resultados acumulados.');"
+                                          class="flex items-end">
+                                        @csrf
+                                        <input type="hidden" name="anio" value="{{ $p->anio }}">
+                                        <button type="submit"
+                                                class="px-3 py-1.5 rounded-md border border-indigo-300 text-indigo-600 dark:border-indigo-700 dark:text-indigo-400 text-sm hover:bg-indigo-50 dark:hover:bg-indigo-900/30 whitespace-nowrap">
+                                            Cierre de ejercicio {{ $p->anio }}
+                                        </button>
+                                    </form>
 
                                     {{-- Mover fecha de bloqueo --}}
                                     <form method="POST" action="{{ route('periodos.bloquear', [$empresa, $p]) }}"

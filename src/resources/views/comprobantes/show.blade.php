@@ -4,10 +4,18 @@
             <h2 class="font-semibold text-xl text-gray-800 dark:text-gray-200 leading-tight">
                 Comprobante <span class="font-mono">{{ $comprobante->folio() }}</span>
             </h2>
-            <a href="{{ route('comprobantes.index') }}"
-               class="text-sm text-indigo-600 hover:text-indigo-800 dark:text-indigo-400">
-                ← Volver al listado
-            </a>
+            <div class="flex items-center gap-4">
+                @if ($comprobante->estado !== 'anulado')
+                    <a href="{{ route('comprobantes.edit', $comprobante) }}"
+                       class="text-sm px-3 py-1.5 rounded-md border border-gray-300 dark:border-gray-600 text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700">
+                        ✎ Editar
+                    </a>
+                @endif
+                <a href="{{ route('comprobantes.index') }}"
+                   class="text-sm text-indigo-600 hover:text-indigo-800 dark:text-indigo-400">
+                    ← Volver al listado
+                </a>
+            </div>
         </div>
     </x-slot>
 

@@ -4,11 +4,110 @@ namespace App\Http\Controllers;
 
 use App\Models\Comprobante;
 use App\Models\Empresa;
+use App\Models\Movimiento;
 use App\Services\ComprobanteService;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 
 class ComprobanteController extends Controller
 {
+    /**
+     * Formulario de edición: TODAS las líneas del comprobante juntas,
+     * se editan y se guardan de una sola vez. Permitido en cualquier
+     * estado (borrador o aprobado) -- si ya esta aprobado, el formulario
+     * exige una confirmacion extra antes de guardar.
+     */
+    public function edit(Comprobante $comprobante)
+    {
+        $this->verificarEmpresa($comprobante);
+        $empresa = $this->empresaActiva();
+
+        $comprobante->load(['movimientos.cuenta', 'movimientos.centroCosto']);
+
+        $cuentas = $empresa->cuentas()
+            ->imputables()
+            ->orderBy('codigo')
+            ->get(['id', 'codigo', 'nombre']);
+
+        return view('comprobantes.edit', compact('comprobante', 'cuentas'));
+    }
+
+    /**
+     * Guarda los cambios de TODAS las lineas de una vez. Solo edita
+     * lineas EXISTENTES (cuenta/debe/haber/glosa) -- no agrega ni
+     * elimina lineas en esta version. Valida que quede cuadrado antes
+     * de confirmar el guardado (todo o nada, en una transaccion).
+     */
+    public function update(Request $request, Comprobante $comprobante)
+    {
+        $this->verificarEmpresa($comprobante);
+
+        // Si el comprobante YA esta aprobado, exigimos una confirmacion
+        // explicita adicional -- editar un asiento ya aprobado altera
+        // historia contable ya cerrada, y no debe hacerse "sin querer".
+        if ($comprobante->estado === 'aprobado') {
+            $request->validate([
+                'confirmar_aprobado' => ['required', 'accepted'],
+            ], [
+                'confirmar_aprobado.required' => 'Debes marcar la casilla de confirmación para editar un comprobante ya aprobado.',
+                'confirmar_aprobado.accepted' => 'Debes marcar la casilla de confirmación para editar un comprobante ya aprobado.',
+            ]);
+        }
+
+        $validated = $request->validate([
+            'lineas'              => ['required', 'array', 'min:2'],
+            'lineas.*.id'         => ['required', 'integer'],
+            'lineas.*.cuenta_id'  => ['required', 'integer', 'exists:cuentas,id'],
+            'lineas.*.debe'       => ['nullable', 'numeric', 'min:0'],
+            'lineas.*.haber'      => ['nullable', 'numeric', 'min:0'],
+            'lineas.*.glosa'      => ['nullable', 'string', 'max:300'],
+        ]);
+
+        // Seguridad: las lineas enviadas deben pertenecer a ESTE comprobante,
+        // ni una mas, ni una menos que las que realmente tiene.
+        $idsReales = $comprobante->movimientos()->pluck('id')->sort()->values();
+        $idsEnviados = collect($validated['lineas'])->pluck('id')->map(fn ($id) => (int) $id)->sort()->values();
+
+        if (! $idsReales->diff($idsEnviados)->isEmpty() || ! $idsEnviados->diff($idsReales)->isEmpty()) {
+            return back()->withInput()->withErrors([
+                'accion' => 'Las líneas enviadas no coinciden con las del comprobante. Recarga la página e intenta de nuevo.',
+            ]);
+        }
+
+        try {
+            DB::transaction(function () use ($validated, $comprobante) {
+                foreach ($validated['lineas'] as $linea) {
+                    Movimiento::where('id', $linea['id'])
+                        ->where('comprobante_id', $comprobante->id)
+                        ->update([
+                            'cuenta_id' => $linea['cuenta_id'],
+                            'debe'      => $linea['debe'] ?? 0,
+                            'haber'     => $linea['haber'] ?? 0,
+                            'glosa'     => $linea['glosa'] ?? null,
+                        ]);
+                }
+
+                // Verificar cuadratura DESPUES de guardar -- si no cuadra,
+                // se revierte todo (la transaccion hace rollback al lanzar).
+                $suma = DB::table('movimientos')->where('comprobante_id', $comprobante->id)
+                    ->selectRaw('SUM(debe) as d, SUM(haber) as h')->first();
+
+                if (round((float) $suma->d, 2) !== round((float) $suma->h, 2)) {
+                    throw new \RuntimeException(
+                        'El comprobante quedaría descuadrado (debe=' . number_format($suma->d, 2) .
+                        ', haber=' . number_format($suma->h, 2) . '). Corrige los montos antes de guardar.'
+                    );
+                }
+            });
+
+            return redirect()->route('comprobantes.show', $comprobante)
+                ->with('status', "Comprobante {$comprobante->folio()} actualizado.");
+
+        } catch (\Throwable $e) {
+            return back()->withInput()->withErrors(['accion' => $e->getMessage()]);
+        }
+    }
+
     /**
      * Listado de comprobantes de la empresa activa,
      * con filtro opcional por estado (?estado=borrador).

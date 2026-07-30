@@ -12,7 +12,6 @@
         'resultado'  => 'bg-emerald-100 text-emerald-800',
     ][$cuenta->clase] ?? 'bg-gray-100 text-gray-800';
 @endphp
-
 @if ($hijas->isEmpty())
     {{-- Hoja (imputable): fila simple --}}
     <div class="flex items-center gap-3 py-1.5 pl-6 rounded hover:bg-gray-50 dark:hover:bg-gray-700/50"
@@ -25,6 +24,10 @@
         @unless ($cuenta->activa)
             <span class="text-xs px-1.5 rounded bg-gray-200 text-gray-500">inactiva</span>
         @endunless
+        <a href="{{ route('cuentas.edit', $cuenta) }}"
+           class="ml-auto text-xs text-indigo-500 hover:text-indigo-700 hover:underline">
+            editar
+        </a>
     </div>
 @else
     {{-- Agrupadora: expandible --}}
@@ -38,8 +41,11 @@
                 <span class="text-xs px-2 py-0.5 rounded-full {{ $colorClase }}">{{ $cuenta->clase }}</span>
             @endif
             <span class="text-xs text-gray-400">({{ $hijas->count() }})</span>
+            <a href="{{ route('cuentas.edit', $cuenta) }}"
+               class="ml-auto text-xs text-indigo-500 hover:text-indigo-700 hover:underline">
+                editar
+            </a>
         </summary>
-
         @foreach ($hijas as $hija)
             @include('cuentas._nodo', ['cuenta' => $hija, 'porPadre' => $porPadre, 'nivel' => $nivel + 1])
         @endforeach
