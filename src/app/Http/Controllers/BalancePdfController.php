@@ -15,15 +15,23 @@ class BalancePdfController extends Controller
      * la base de datos (SaldoService), no desde ningún archivo externo.
      * Cualquier corrección hecha en el sistema se refleja automáticamente
      * la próxima vez que se genera este PDF.
+     *
+     * Parámetro opcional ?pre_cierre=1 : excluye el asiento de CIERRE DEL
+     * EJERCICIO, de modo que las cuentas de Resultado muestren su saldo
+     * (balance ANTES del cierre, el que exhibe la utilidad/pérdida del
+     * ejercicio). Sin el parámetro, se incluye el cierre (balance POST-cierre,
+     * cuentas de resultado en cero).
      */
     public function generar(Request $request, Empresa $empresa, SaldoService $saldos)
     {
         $desde = $request->filled('desde') ? Carbon::parse($request->desde) : now()->startOfYear();
         $hasta = $request->filled('hasta') ? Carbon::parse($request->hasta) : now()->endOfYear();
 
+        $preCierre = $request->boolean('pre_cierre');
+
         // Mismo índice que usa el Libro Mayor: saldo anterior + sumas del
         // período + saldo final, ya con signo ajustado por naturaleza.
-        $indice = $saldos->indice($empresa, $desde, $hasta);
+        $indice = $saldos->indice($empresa, $desde, $hasta, $preCierre);
 
         // IMPORTANTE: indice() SOLO devuelve cuentas con movimiento en el
         // período (correcto para el Libro Mayor). Un Balance, en cambio,
@@ -39,7 +47,7 @@ class BalancePdfController extends Controller
             if (in_array($cuenta->id, $idsConMovimiento, true)) {
                 continue;
             }
-            $anterior = $saldos->saldoAnterior($cuenta, $desde);
+            $anterior = $saldos->saldoAnterior($cuenta, $desde, $preCierre);
             $saldoAnteriorNeto = $saldos->saldoNeto($cuenta, $anterior['debe'], $anterior['haber']);
             if (bccomp($saldoAnteriorNeto, '0', 2) === 0) {
                 continue; // sin saldo, no aporta nada al balance

@@ -30,14 +30,21 @@ class SaldoService
     /**
      * Saldo de una cuenta ANTES de una fecha (arrastre inicial).
      * Solo considera comprobantes APROBADOS.
+     *
+     * $excluirCierre: si es true, ignora el asiento de CIERRE DEL EJERCICIO
+     * (para el balance PRE-cierre, que muestra el resultado del período).
      */
-    public function saldoAnterior(Cuenta $cuenta, Carbon $desde): array
+    public function saldoAnterior(Cuenta $cuenta, Carbon $desde, bool $excluirCierre = false): array
     {
         $sumas = Movimiento::query()
             ->where('cuenta_id', $cuenta->id)
-            ->whereHas('comprobante', fn ($q) => $q
-                ->where('estado', Comprobante::APROBADO)
-                ->where('fecha', '<', $desde->toDateString()))
+            ->whereHas('comprobante', function ($q) use ($desde, $excluirCierre) {
+                $q->where('estado', Comprobante::APROBADO)
+                  ->where('fecha', '<', $desde->toDateString());
+                if ($excluirCierre) {
+                    $q->where('glosa', 'not like', 'CIERRE DEL EJERCICIO%');
+                }
+            })
             ->selectRaw('COALESCE(SUM(debe),0) as debe, COALESCE(SUM(haber),0) as haber')
             ->first();
 
@@ -63,15 +70,22 @@ class SaldoService
     /**
      * Índice del mayor: todas las cuentas imputables CON movimiento
      * en el rango, con sus totales y saldos.
+     *
+     * $excluirCierre: si es true, ignora el asiento de CIERRE DEL EJERCICIO
+     * (para el balance PRE-cierre, que muestra el resultado del período).
      */
-    public function indice(Empresa $empresa, Carbon $desde, Carbon $hasta): Collection
+    public function indice(Empresa $empresa, Carbon $desde, Carbon $hasta, bool $excluirCierre = false): Collection
     {
         // Totales del período por cuenta, en una sola consulta agregada
         $totales = Movimiento::query()
-            ->whereHas('comprobante', fn ($q) => $q
-                ->where('empresa_id', $empresa->id)
-                ->where('estado', Comprobante::APROBADO)
-                ->whereBetween('fecha', [$desde->toDateString(), $hasta->toDateString()]))
+            ->whereHas('comprobante', function ($q) use ($empresa, $desde, $hasta, $excluirCierre) {
+                $q->where('empresa_id', $empresa->id)
+                  ->where('estado', Comprobante::APROBADO)
+                  ->whereBetween('fecha', [$desde->toDateString(), $hasta->toDateString()]);
+                if ($excluirCierre) {
+                    $q->where('glosa', 'not like', 'CIERRE DEL EJERCICIO%');
+                }
+            })
             ->selectRaw('cuenta_id, SUM(debe) as debe, SUM(haber) as haber')
             ->groupBy('cuenta_id')
             ->get()
@@ -85,8 +99,8 @@ class SaldoService
             ->orderBy('codigo')
             ->get();
 
-        return $cuentas->map(function (Cuenta $cuenta) use ($totales, $desde) {
-            $anterior = $this->saldoAnterior($cuenta, $desde);
+        return $cuentas->map(function (Cuenta $cuenta) use ($totales, $desde, $excluirCierre) {
+            $anterior = $this->saldoAnterior($cuenta, $desde, $excluirCierre);
             $periodo  = $totales->get($cuenta->id);
 
             $debePeriodo  = (string) $periodo->debe;
@@ -129,26 +143,21 @@ class SaldoService
             ->orderBy('movimientos.id')
             ->select('movimientos.*')
             ->get();
-
         $lineas = [];
         $totalDebe  = '0';
         $totalHaber = '0';
-
         foreach ($movimientos as $m) {
             $delta = $this->esDeudora($cuenta)
                 ? bcsub((string) $m->debe, (string) $m->haber, 2)
                 : bcsub((string) $m->haber, (string) $m->debe, 2);
-
             $saldoCorriente = bcadd($saldoCorriente, $delta, 2);
             $totalDebe  = bcadd($totalDebe,  (string) $m->debe,  2);
             $totalHaber = bcadd($totalHaber, (string) $m->haber, 2);
-
             $lineas[] = (object) [
                 'movimiento' => $m,
                 'saldo'      => $saldoCorriente,
             ];
         }
-
         return [
             'saldoAnterior' => $this->saldoNeto($cuenta, $anterior['debe'], $anterior['haber']),
             'lineas'        => $lineas,
