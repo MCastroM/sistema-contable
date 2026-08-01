@@ -31,18 +31,21 @@ class SaldoService
      * Saldo de una cuenta ANTES de una fecha (arrastre inicial).
      * Solo considera comprobantes APROBADOS.
      *
-     * $excluirCierre: si es true, ignora el asiento de CIERRE DEL EJERCICIO
-     * (para el balance PRE-cierre, que muestra el resultado del período).
+     * $excluirCierreAnio: si se indica un año (ej. 2019), ignora el asiento
+     * "CIERRE DEL EJERCICIO {año}" de ESE año en particular (para el balance
+     * PRE-cierre, que no debe incluir la utilidad del propio año). Los cierres
+     * de OTROS años (anteriores) SÍ se cuentan, porque su utilidad ya forma
+     * parte del patrimonio arrastrado.
      */
-    public function saldoAnterior(Cuenta $cuenta, Carbon $desde, bool $excluirCierre = false): array
+    public function saldoAnterior(Cuenta $cuenta, Carbon $desde, ?int $excluirCierreAnio = null): array
     {
         $sumas = Movimiento::query()
             ->where('cuenta_id', $cuenta->id)
-            ->whereHas('comprobante', function ($q) use ($desde, $excluirCierre) {
+            ->whereHas('comprobante', function ($q) use ($desde, $excluirCierreAnio) {
                 $q->where('estado', Comprobante::APROBADO)
                   ->where('fecha', '<', $desde->toDateString());
-                if ($excluirCierre) {
-                    $q->where('glosa', 'not like', 'CIERRE DEL EJERCICIO%');
+                if ($excluirCierreAnio !== null) {
+                    $q->where('glosa', 'not like', "CIERRE DEL EJERCICIO {$excluirCierreAnio}%");
                 }
             })
             ->selectRaw('COALESCE(SUM(debe),0) as debe, COALESCE(SUM(haber),0) as haber')
@@ -71,19 +74,19 @@ class SaldoService
      * Índice del mayor: todas las cuentas imputables CON movimiento
      * en el rango, con sus totales y saldos.
      *
-     * $excluirCierre: si es true, ignora el asiento de CIERRE DEL EJERCICIO
-     * (para el balance PRE-cierre, que muestra el resultado del período).
+     * $excluirCierreAnio: si se indica un año, ignora el asiento
+     * "CIERRE DEL EJERCICIO {año}" de ESE año (para el balance PRE-cierre).
      */
-    public function indice(Empresa $empresa, Carbon $desde, Carbon $hasta, bool $excluirCierre = false): Collection
+    public function indice(Empresa $empresa, Carbon $desde, Carbon $hasta, ?int $excluirCierreAnio = null): Collection
     {
         // Totales del período por cuenta, en una sola consulta agregada
         $totales = Movimiento::query()
-            ->whereHas('comprobante', function ($q) use ($empresa, $desde, $hasta, $excluirCierre) {
+            ->whereHas('comprobante', function ($q) use ($empresa, $desde, $hasta, $excluirCierreAnio) {
                 $q->where('empresa_id', $empresa->id)
                   ->where('estado', Comprobante::APROBADO)
                   ->whereBetween('fecha', [$desde->toDateString(), $hasta->toDateString()]);
-                if ($excluirCierre) {
-                    $q->where('glosa', 'not like', 'CIERRE DEL EJERCICIO%');
+                if ($excluirCierreAnio !== null) {
+                    $q->where('glosa', 'not like', "CIERRE DEL EJERCICIO {$excluirCierreAnio}%");
                 }
             })
             ->selectRaw('cuenta_id, SUM(debe) as debe, SUM(haber) as haber')
@@ -99,8 +102,8 @@ class SaldoService
             ->orderBy('codigo')
             ->get();
 
-        return $cuentas->map(function (Cuenta $cuenta) use ($totales, $desde, $excluirCierre) {
-            $anterior = $this->saldoAnterior($cuenta, $desde, $excluirCierre);
+        return $cuentas->map(function (Cuenta $cuenta) use ($totales, $desde, $excluirCierreAnio) {
+            $anterior = $this->saldoAnterior($cuenta, $desde, $excluirCierreAnio);
             $periodo  = $totales->get($cuenta->id);
 
             $debePeriodo  = (string) $periodo->debe;

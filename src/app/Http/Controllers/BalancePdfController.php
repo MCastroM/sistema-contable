@@ -16,22 +16,28 @@ class BalancePdfController extends Controller
      * Cualquier corrección hecha en el sistema se refleja automáticamente
      * la próxima vez que se genera este PDF.
      *
-     * Parámetro opcional ?pre_cierre=1 : excluye el asiento de CIERRE DEL
-     * EJERCICIO, de modo que las cuentas de Resultado muestren su saldo
-     * (balance ANTES del cierre, el que exhibe la utilidad/pérdida del
-     * ejercicio). Sin el parámetro, se incluye el cierre (balance POST-cierre,
-     * cuentas de resultado en cero).
+     * Parámetro opcional ?pre_cierre=1 : balance ANTES del cierre del año
+     * en curso. Excluye ÚNICAMENTE el asiento "CIERRE DEL EJERCICIO {año}"
+     * de ESE año (el año de la fecha 'hasta'), de modo que:
+     *   - Las cuentas de Resultado muestran su saldo del ejercicio.
+     *   - El patrimonio NO incluye todavía la utilidad del propio año
+     *     (esa aparece en la línea "Resultado del Ejercicio", y se
+     *     incorpora a Resultados Acumulados recién en la apertura del
+     *     año siguiente).
+     * Los cierres de años ANTERIORES sí se cuentan: su utilidad ya es
+     * parte del patrimonio arrastrado.
      */
     public function generar(Request $request, Empresa $empresa, SaldoService $saldos)
     {
         $desde = $request->filled('desde') ? Carbon::parse($request->desde) : now()->startOfYear();
         $hasta = $request->filled('hasta') ? Carbon::parse($request->hasta) : now()->endOfYear();
 
-        $preCierre = $request->boolean('pre_cierre');
+        // Año cuyo asiento de cierre se excluye (solo si se pide pre-cierre).
+        $excluirCierreAnio = $request->boolean('pre_cierre') ? (int) $hasta->year : null;
 
         // Mismo índice que usa el Libro Mayor: saldo anterior + sumas del
         // período + saldo final, ya con signo ajustado por naturaleza.
-        $indice = $saldos->indice($empresa, $desde, $hasta, $preCierre);
+        $indice = $saldos->indice($empresa, $desde, $hasta, $excluirCierreAnio);
 
         // IMPORTANTE: indice() SOLO devuelve cuentas con movimiento en el
         // período (correcto para el Libro Mayor). Un Balance, en cambio,
@@ -40,6 +46,10 @@ class BalancePdfController extends Controller
         // de un año anterior "desaparece" del balance sin dejar rastro,
         // rompiendo la igualdad Deudor=Acreedor. Agregamos esas cuentas
         // "dormidas" (saldo arrastrado, sin movimiento este período).
+        //
+        // NOTA: las cuentas de RESULTADO no se agregan como "dormidas":
+        // arrancan cada ejercicio en cero (gracias al asiento de cierre del
+        // año anterior) y solo aparecen si tienen movimiento en el período.
         $idsConMovimiento = $indice->pluck('cuenta.id')->all();
         $todasImputables = $empresa->cuentas()->where('imputable', true)->get();
 
@@ -47,7 +57,11 @@ class BalancePdfController extends Controller
             if (in_array($cuenta->id, $idsConMovimiento, true)) {
                 continue;
             }
-            $anterior = $saldos->saldoAnterior($cuenta, $desde, $preCierre);
+            // Las cuentas de resultado NO arrastran saldo entre ejercicios.
+            if ($cuenta->clase === 'resultado') {
+                continue;
+            }
+            $anterior = $saldos->saldoAnterior($cuenta, $desde, $excluirCierreAnio);
             $saldoAnteriorNeto = $saldos->saldoNeto($cuenta, $anterior['debe'], $anterior['haber']);
             if (bccomp($saldoAnteriorNeto, '0', 2) === 0) {
                 continue; // sin saldo, no aporta nada al balance
@@ -65,16 +79,21 @@ class BalancePdfController extends Controller
         $filas = $indice->map(function ($f) {
             $clase = $f->cuenta->clase;
 
-            // NOTA IMPORTANTE: se evaluo tratar las cuentas de Resultado
-            // con "solo el periodo" (ya que en teoria no deberian arrastrar
-            // saldo entre ejercicios) -- pero eso ROMPE la garantia de
-            // partida doble (Deudor=Acreedor) porque ABSAL nunca hizo un
-            // CIERRE DE EJERCICIO formal entre 2020 y 2021 (no hay asiento
-            // que traspase la utilidad/perdida del año a Patrimonio y deje
-            // las cuentas de resultado en cero). Mientras no exista ese
-            // cierre, TODAS las cuentas deben usar el mismo criterio
-            // (acumulado historico) para que el balance cuadre matematicamente.
-            $real = $f->esDeudora ? $f->saldoFinal : bcmul($f->saldoFinal, '-1', 2);
+            // ── Criterio de saldo según tipo de cuenta ──
+            // RESULTADO (Ventas, Sueldos, gastos...): solo el MOVIMIENTO DEL
+            //   PERÍODO. No arrastran saldo entre ejercicios porque el asiento
+            //   de CIERRE del año anterior las dejó en cero. Mostrar su
+            //   acumulado histórico inflaría el resultado del ejercicio.
+            // BALANCE (activo/pasivo/patrimonio): saldo FINAL acumulado
+            //   (saldo anterior + período), porque su saldo sí se arrastra.
+            if ($clase === 'resultado') {
+                $netoPeriodo = $f->esDeudora
+                    ? bcsub($f->debe, $f->haber, 2)   // gasto: debe - haber
+                    : bcsub($f->haber, $f->debe, 2);  // ingreso: haber - debe
+                $real = $f->esDeudora ? $netoPeriodo : bcmul($netoPeriodo, '-1', 2);
+            } else {
+                $real = $f->esDeudora ? $f->saldoFinal : bcmul($f->saldoFinal, '-1', 2);
+            }
 
             $saldoDeudor   = bccomp($real, '0', 2) === 1  ? $real : '0';
             $saldoAcreedor = bccomp($real, '0', 2) === -1 ? bcmul($real, '-1', 2) : '0';
