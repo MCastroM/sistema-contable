@@ -71,7 +71,10 @@
             @php
                 $etiquetas = ['activo' => 'ACTIVO', 'pasivo' => 'PASIVO',
                               'patrimonio' => 'PATRIMONIO', 'resultado' => 'RESULTADO (Ganancias y Pérdidas)'];
-                $fmt = fn ($v) => bccomp($v, '0', 2) === 1 ? number_format((float) $v, 0, ',', '.') : '';
+                // Formato defensivo: muestra el número si es > 0; si no, celda vacía.
+                $fmt = fn ($v) => ($v !== null && (float) $v > 0)
+                    ? number_format((float) $v, 0, ',', '.')
+                    : '';
             @endphp
             @foreach ($etiquetas as $clase => $etiqueta)
                 @continue(! $porClase->has($clase))
@@ -80,8 +83,8 @@
                     <tr>
                         <td>{{ $f->cuenta->codigo }}</td>
                         <td class="izq">{{ $f->cuenta->nombre }}</td>
-                        <td class="num">{{ $fmt($f->debe) }}</td>
-                        <td class="num">{{ $fmt($f->haber) }}</td>
+                        <td class="num">{{ $fmt($f->sumasDebe) }}</td>
+                        <td class="num">{{ $fmt($f->sumasHaber) }}</td>
                         <td class="num">{{ $fmt($f->saldoDeudor) }}</td>
                         <td class="num">{{ $fmt($f->saldoAcreedor) }}</td>
                         <td class="num">{{ $fmt($f->activoCol) }}</td>
@@ -103,7 +106,7 @@
                 <td class="num">{{ number_format((float) $totales['perdida'], 0, ',', '.') }}</td>
                 <td class="num">{{ number_format((float) $totales['ganancia'], 0, ',', '.') }}</td>
             </tr>
-            @php $fmtP = fn ($v) => bccomp($v,'0',2)===1 ? number_format((float)$v,0,',','.') : '-'; @endphp
+            @php $fmtP = fn ($v) => ($v !== null && (float) $v > 0) ? number_format((float) $v, 0, ',', '.') : '-'; @endphp
             <tr class="resultado">
                 <td colspan="2">RESULTADO DEL EJERCICIO</td>
                 <td class="num">-</td>

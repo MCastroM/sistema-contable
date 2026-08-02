@@ -11,45 +11,34 @@ use Illuminate\Http\Request;
 class BalancePdfController extends Controller
 {
     /**
-     * Balance Tributario de 8 columnas en PDF, leyendo EN VIVO desde
-     * la base de datos (SaldoService), no desde ningún archivo externo.
-     * Cualquier corrección hecha en el sistema se refleja automáticamente
-     * la próxima vez que se genera este PDF.
+     * Balance Tributario de 8 columnas en PDF, leyendo EN VIVO desde la BD.
      *
-     * Parámetro opcional ?pre_cierre=1 : balance ANTES del cierre del año
-     * en curso. Excluye ÚNICAMENTE el asiento "CIERRE DEL EJERCICIO {año}"
-     * de ESE año (el año de la fecha 'hasta'), de modo que:
-     *   - Las cuentas de Resultado muestran su saldo del ejercicio.
-     *   - El patrimonio NO incluye todavía la utilidad del propio año
-     *     (esa aparece en la línea "Resultado del Ejercicio", y se
-     *     incorpora a Resultados Acumulados recién en la apertura del
-     *     año siguiente).
-     * Los cierres de años ANTERIORES sí se cuentan: su utilidad ya es
-     * parte del patrimonio arrastrado.
+     * Columnas SUMAS (Debe/Haber):
+     *  - Cuentas de BALANCE (activo/pasivo/patrimonio): el SALDO DE APERTURA
+     *    neto se incorpora al lado que corresponde por naturaleza (deudor->
+     *    DEBE, acreedor->HABER) y se le SUMA el movimiento del año. Así las
+     *    cuentas sin movimiento igual muestran su saldo arrastrado, y los
+     *    saldos "cuadran visiblemente".
+     *  - Cuentas de RESULTADO: solo el movimiento del año (arrancan en cero
+     *    cada ejercicio por el cierre anterior; sin apertura).
+     *
+     * Columnas SALDOS / INVENTARIO / RESULTADO: saldo neto según naturaleza.
+     *
+     * ?pre_cierre=1 : excluye el asiento "CIERRE DEL EJERCICIO {año}" del año
+     * en curso (según 'hasta'). Los cierres de años anteriores sí cuentan.
      */
     public function generar(Request $request, Empresa $empresa, SaldoService $saldos)
     {
         $desde = $request->filled('desde') ? Carbon::parse($request->desde) : now()->startOfYear();
         $hasta = $request->filled('hasta') ? Carbon::parse($request->hasta) : now()->endOfYear();
 
-        // Año cuyo asiento de cierre se excluye (solo si se pide pre-cierre).
         $excluirCierreAnio = $request->boolean('pre_cierre') ? (int) $hasta->year : null;
 
-        // Mismo índice que usa el Libro Mayor: saldo anterior + sumas del
-        // período + saldo final, ya con signo ajustado por naturaleza.
         $indice = $saldos->indice($empresa, $desde, $hasta, $excluirCierreAnio);
 
-        // IMPORTANTE: indice() SOLO devuelve cuentas con movimiento en el
-        // período (correcto para el Libro Mayor). Un Balance, en cambio,
-        // debe mostrar TODAS las cuentas con saldo distinto de cero, tengan
-        // o no actividad este año -- si no, una cuenta con saldo arrastrado
-        // de un año anterior "desaparece" del balance sin dejar rastro,
-        // rompiendo la igualdad Deudor=Acreedor. Agregamos esas cuentas
-        // "dormidas" (saldo arrastrado, sin movimiento este período).
-        //
-        // NOTA: las cuentas de RESULTADO no se agregan como "dormidas":
-        // arrancan cada ejercicio en cero (gracias al asiento de cierre del
-        // año anterior) y solo aparecen si tienen movimiento en el período.
+        // Cuentas "dormidas": saldo arrastrado, sin movimiento en el período.
+        // Se agregan con su apertura por lado para que muestren su saldo.
+        // Las de RESULTADO no se agregan (arrancan en cero cada ejercicio).
         $idsConMovimiento = $indice->pluck('cuenta.id')->all();
         $todasImputables = $empresa->cuentas()->where('imputable', true)->get();
 
@@ -57,20 +46,22 @@ class BalancePdfController extends Controller
             if (in_array($cuenta->id, $idsConMovimiento, true)) {
                 continue;
             }
-            // Las cuentas de resultado NO arrastran saldo entre ejercicios.
             if ($cuenta->clase === 'resultado') {
                 continue;
             }
             $anterior = $saldos->saldoAnterior($cuenta, $desde, $excluirCierreAnio);
             $saldoAnteriorNeto = $saldos->saldoNeto($cuenta, $anterior['debe'], $anterior['haber']);
             if (bccomp($saldoAnteriorNeto, '0', 2) === 0) {
-                continue; // sin saldo, no aporta nada al balance
+                continue; // sin saldo, no aporta al balance
             }
+            $apertura = $saldos->aperturaPorLado($cuenta, $desde, $excluirCierreAnio);
             $indice->push((object) [
                 'cuenta'        => $cuenta,
                 'saldoAnterior' => $saldoAnteriorNeto,
                 'debe'          => '0',
                 'haber'         => '0',
+                'aperturaDebe'  => $apertura['debe'],
+                'aperturaHaber' => $apertura['haber'],
                 'saldoFinal'    => $saldoAnteriorNeto,
                 'esDeudora'     => $saldos->esDeudora($cuenta),
             ]);
@@ -79,17 +70,22 @@ class BalancePdfController extends Controller
         $filas = $indice->map(function ($f) {
             $clase = $f->cuenta->clase;
 
-            // ── Criterio de saldo según tipo de cuenta ──
-            // RESULTADO (Ventas, Sueldos, gastos...): solo el MOVIMIENTO DEL
-            //   PERÍODO. No arrastran saldo entre ejercicios porque el asiento
-            //   de CIERRE del año anterior las dejó en cero. Mostrar su
-            //   acumulado histórico inflaría el resultado del ejercicio.
-            // BALANCE (activo/pasivo/patrimonio): saldo FINAL acumulado
-            //   (saldo anterior + período), porque su saldo sí se arrastra.
+            // ── Columnas SUMAS (Debe/Haber) ──
+            if ($clase === 'resultado') {
+                // Resultado: solo movimiento del año (sin apertura).
+                $sumasDebe  = $f->debe;
+                $sumasHaber = $f->haber;
+            } else {
+                // Balance: apertura por lado + movimiento del año.
+                $sumasDebe  = bcadd($f->aperturaDebe  ?? '0', $f->debe,  2);
+                $sumasHaber = bcadd($f->aperturaHaber ?? '0', $f->haber, 2);
+            }
+
+            // ── Columnas SALDOS / INVENTARIO / RESULTADO ──
             if ($clase === 'resultado') {
                 $netoPeriodo = $f->esDeudora
-                    ? bcsub($f->debe, $f->haber, 2)   // gasto: debe - haber
-                    : bcsub($f->haber, $f->debe, 2);  // ingreso: haber - debe
+                    ? bcsub($f->debe, $f->haber, 2)
+                    : bcsub($f->haber, $f->debe, 2);
                 $real = $f->esDeudora ? $netoPeriodo : bcmul($netoPeriodo, '-1', 2);
             } else {
                 $real = $f->esDeudora ? $f->saldoFinal : bcmul($f->saldoFinal, '-1', 2);
@@ -112,6 +108,7 @@ class BalancePdfController extends Controller
             }
 
             return (object) array_merge((array) $f, [
+                'sumasDebe' => $sumasDebe, 'sumasHaber' => $sumasHaber,
                 'saldoDeudor' => $saldoDeudor, 'saldoAcreedor' => $saldoAcreedor,
                 'activoCol' => $activoCol, 'pasivoCol' => $pasivoCol,
                 'perdidaCol' => $perdidaCol, 'ganciaCol' => $ganciaCol,
@@ -120,10 +117,9 @@ class BalancePdfController extends Controller
 
         $porClase = $filas->groupBy(fn ($f) => $f->cuenta->clase);
 
-        // Totales generales de las 8 columnas (deben cuadrar de a pares)
         $totales = [
-            'debe'     => $filas->reduce(fn ($a, $f) => bcadd($a, $f->debe, 2), '0'),
-            'haber'    => $filas->reduce(fn ($a, $f) => bcadd($a, $f->haber, 2), '0'),
+            'debe'     => $filas->reduce(fn ($a, $f) => bcadd($a, $f->sumasDebe, 2), '0'),
+            'haber'    => $filas->reduce(fn ($a, $f) => bcadd($a, $f->sumasHaber, 2), '0'),
             'deudor'   => $filas->reduce(fn ($a, $f) => bcadd($a, $f->saldoDeudor, 2), '0'),
             'acreedor' => $filas->reduce(fn ($a, $f) => bcadd($a, $f->saldoAcreedor, 2), '0'),
             'activo'   => $filas->reduce(fn ($a, $f) => bcadd($a, $f->activoCol, 2), '0'),
@@ -132,21 +128,13 @@ class BalancePdfController extends Controller
             'ganancia' => $filas->reduce(fn ($a, $f) => bcadd($a, $f->ganciaCol, 2), '0'),
         ];
 
-        // ── Resultado del Ejercicio: la utilidad (o perdida) del periodo
-        //    se "inserta" en Activo/Pasivo Y en Perdida/Ganancia, para
-        //    demostrar que el sistema cuadra en su conjunto (no solo
-        //    columna por columna). Convencion clasica del balance de
-        //    8 columnas chileno. ──
         $resultado = bcsub($totales['ganancia'], $totales['perdida'], 2);
         $esUtilidad = bccomp($resultado, '0', 2) === 1;
 
         if ($esUtilidad) {
-            // Utilidad: se suma al Pasivo (aumenta patrimonio) y a la
-            // Perdida (para igualar con Ganancia).
             $plugActivo = '0'; $plugPasivo = $resultado;
             $plugPerdida = $resultado; $plugGanancia = '0';
         } elseif (bccomp($resultado, '0', 2) === -1) {
-            // Perdida neta: se suma al Activo y a la Ganancia.
             $abs = bcmul($resultado, '-1', 2);
             $plugActivo = $abs; $plugPasivo = '0';
             $plugPerdida = '0'; $plugGanancia = $abs;
@@ -168,7 +156,7 @@ class BalancePdfController extends Controller
             'ganancia' => bcadd($totales['ganancia'], $plugGanancia, 2),
         ];
 
-        $folio = $request->query('folio'); // folio manual mientras no existe el ensamblado completo (Paquete C)
+        $folio = $request->query('folio');
         $empNombreImpresion = preg_replace('/\s*\(PRUEBA\)\s*$/i', '', $empresa->razon_social);
 
         $pdf = Pdf::loadView('pdf.balance8', compact(
@@ -177,6 +165,6 @@ class BalancePdfController extends Controller
 
         $nombreArchivo = "balance-8-columnas-{$empresa->rut}-{$hasta->format('Y-m')}.pdf";
 
-        return $pdf->stream($nombreArchivo); // stream = se abre en el navegador; download() para forzar descarga
+        return $pdf->stream($nombreArchivo);
     }
 }

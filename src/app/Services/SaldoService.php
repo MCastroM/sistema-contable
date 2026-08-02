@@ -17,10 +17,6 @@ class SaldoService
      *
      * Activo y pérdidas -> deudoras
      * Pasivo, patrimonio y ganancias -> acreedoras
-     *
-     * Nota: en nuestro plan, ganancias (4) y pérdidas (5) comparten
-     * la clase 'resultado', así que la naturaleza se deduce del
-     * primer dígito del código.
      */
     public function esDeudora(Cuenta $cuenta): bool
     {
@@ -31,11 +27,8 @@ class SaldoService
      * Saldo de una cuenta ANTES de una fecha (arrastre inicial).
      * Solo considera comprobantes APROBADOS.
      *
-     * $excluirCierreAnio: si se indica un año (ej. 2019), ignora el asiento
-     * "CIERRE DEL EJERCICIO {año}" de ESE año en particular (para el balance
-     * PRE-cierre, que no debe incluir la utilidad del propio año). Los cierres
-     * de OTROS años (anteriores) SÍ se cuentan, porque su utilidad ya forma
-     * parte del patrimonio arrastrado.
+     * $excluirCierreAnio: si se indica un año, ignora el asiento
+     * "CIERRE DEL EJERCICIO {año}" de ESE año (balance pre-cierre).
      */
     public function saldoAnterior(Cuenta $cuenta, Carbon $desde, ?int $excluirCierreAnio = null): array
     {
@@ -58,10 +51,33 @@ class SaldoService
     }
 
     /**
+     * Saldo de apertura NETO repartido por lado, según naturaleza.
+     * Devuelve el saldo anterior como un débito o crédito inicial:
+     *  - cuenta deudora  con saldo deudor  -> ['debe' => saldo, 'haber' => 0]
+     *  - cuenta acreedora con saldo acreedor-> ['debe' => 0, 'haber' => saldo]
+     *  - si el saldo resulta de naturaleza contraria, se ubica en el
+     *    lado que refleje el signo real (para no romper el cuadre).
+     *
+     * Se usa para incorporar la apertura a las columnas SUMAS del balance.
+     */
+    public function aperturaPorLado(Cuenta $cuenta, Carbon $desde, ?int $excluirCierreAnio = null): array
+    {
+        $ant = $this->saldoAnterior($cuenta, $desde, $excluirCierreAnio);
+        // saldo neto en términos de debe-haber (positivo = neto deudor)
+        $netoDebeHaber = bcsub($ant['debe'], $ant['haber'], 2);
+
+        if (bccomp($netoDebeHaber, '0', 2) >= 0) {
+            // neto deudor (o cero): va al DEBE
+            return ['debe' => $netoDebeHaber, 'haber' => '0'];
+        }
+        // neto acreedor: va al HABER (valor absoluto)
+        return ['debe' => '0', 'haber' => bcmul($netoDebeHaber, '-1', 2)];
+    }
+
+    /**
      * Saldo neto con signo según naturaleza:
      * deudora  -> debe - haber
      * acreedora-> haber - debe
-     * Un saldo negativo indica naturaleza contraria a la esperada.
      */
     public function saldoNeto(Cuenta $cuenta, string $debe, string $haber): string
     {
@@ -74,12 +90,16 @@ class SaldoService
      * Índice del mayor: todas las cuentas imputables CON movimiento
      * en el rango, con sus totales y saldos.
      *
-     * $excluirCierreAnio: si se indica un año, ignora el asiento
-     * "CIERRE DEL EJERCICIO {año}" de ESE año (para el balance PRE-cierre).
+     * Incluye:
+     *  - debe / haber   : movimiento DEL PERÍODO (desde..hasta)
+     *  - aperturaDebe / aperturaHaber : saldo de apertura neto por lado
+     *  - saldoAnterior  : saldo neto (naturaleza) antes de 'desde'
+     *  - saldoFinal     : saldo neto (naturaleza) acumulado hasta 'hasta'
+     *
+     * $excluirCierreAnio: ignora "CIERRE DEL EJERCICIO {año}" (pre-cierre).
      */
     public function indice(Empresa $empresa, Carbon $desde, Carbon $hasta, ?int $excluirCierreAnio = null): Collection
     {
-        // Totales del período por cuenta, en una sola consulta agregada
         $totales = Movimiento::query()
             ->whereHas('comprobante', function ($q) use ($empresa, $desde, $hasta, $excluirCierreAnio) {
                 $q->where('empresa_id', $empresa->id)
@@ -112,11 +132,15 @@ class SaldoService
             $debeAcum  = bcadd($anterior['debe'],  $debePeriodo,  2);
             $haberAcum = bcadd($anterior['haber'], $haberPeriodo, 2);
 
+            $apertura = $this->aperturaPorLado($cuenta, $desde, $excluirCierreAnio);
+
             return (object) [
                 'cuenta'        => $cuenta,
                 'saldoAnterior' => $this->saldoNeto($cuenta, $anterior['debe'], $anterior['haber']),
                 'debe'          => $debePeriodo,
                 'haber'         => $haberPeriodo,
+                'aperturaDebe'  => $apertura['debe'],
+                'aperturaHaber' => $apertura['haber'],
                 'saldoFinal'    => $this->saldoNeto($cuenta, $debeAcum, $haberAcum),
                 'esDeudora'     => $this->esDeudora($cuenta),
             ];
