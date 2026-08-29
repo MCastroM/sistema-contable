@@ -21,11 +21,11 @@
         <table class="libro">
             <thead>
                 <tr>
-                    <th style="width:5%">N°</th><th style="width:6%">Tipo</th>
-                    <th style="width:12%">RUT Proveedor</th><th style="width:28%">Razón Social</th>
-                    <th style="width:9%">Folio</th><th style="width:9%">Fecha</th>
-                    <th style="width:10%">Exento</th><th style="width:10%">Neto</th>
-                    <th style="width:5.5%">IVA</th><th style="width:5.5%">Total</th>
+                    <th style="width:5%">N°</th>
+                    <th style="width:13%">RUT Proveedor</th><th style="width:31%">Razón Social</th>
+                    <th style="width:10%">Folio</th><th style="width:10%">Fecha</th>
+                    <th style="width:8%">Exento</th><th style="width:8%">Neto</th>
+                    <th style="width:7.5%">IVA</th><th style="width:7.5%">Total</th>
                 </tr>
             </thead>
             <tbody>
@@ -35,9 +35,8 @@
                         @php $d = $f['doc']; @endphp
                         <tr>
                             <td>{{ $d->nro }}</td>
-                            <td>{{ $d->tipo_dte }}</td>
                             <td class="izq">{{ $d->rut_proveedor }}</td>
-                            <td class="izq">{{ \Illuminate\Support\Str::limit($d->razon_social, 40, '') }}</td>
+                            <td class="izq">{{ \Illuminate\Support\Str::limit($d->razon_social, 45, '') }}</td>
                             <td>{{ $d->folio }}</td>
                             <td>{{ $d->fecha->format('d-m-Y') }}</td>
                             <td class="num">{{ $fmt($d->exento) }}</td>
@@ -47,7 +46,7 @@
                         </tr>
                     @elseif ($f['tipo'] === 'total_general')
                         <tr class="total-general">
-                            <td colspan="6">TOTAL GENERAL</td>
+                            <td colspan="5">TOTAL GENERAL</td>
                             <td class="num">{{ number_format((float)$f['exento'],0,',','.') }}</td>
                             <td class="num">{{ number_format((float)$f['neto'],0,',','.') }}</td>
                             <td class="num">{{ number_format((float)$f['iva'],0,',','.') }}</td>

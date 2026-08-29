@@ -21,23 +21,31 @@
         <table class="libro">
             <thead>
                 <tr>
-                    <th style="width:5%">N°</th><th style="width:6%">Tipo</th>
-                    <th style="width:12%">RUT Cliente</th><th style="width:28%">Razón Social</th>
-                    <th style="width:9%">Folio</th><th style="width:9%">Fecha</th>
+                    <th style="width:5%">N°</th><th style="width:9%">Tipo</th>
+                    <th style="width:12%">RUT Cliente</th><th style="width:27%">Razón Social</th>
+                    <th style="width:8%">Folio</th><th style="width:9%">Fecha</th>
                     <th style="width:10%">Exento</th><th style="width:10%">Neto</th>
                     <th style="width:5.5%">IVA</th><th style="width:5.5%">Total</th>
                 </tr>
             </thead>
             <tbody>
-                @php $fmt = fn ($v) => bccomp($v,'0',2)===1 ? number_format((float)$v,0,',','.') : ''; @endphp
+                @php
+                    // Muestra el monto si es distinto de cero (incluye negativos de notas de crédito).
+                    $fmt = fn ($v) => bccomp((string)$v,'0',2) !== 0 ? number_format((float)$v,0,',','.') : '';
+                    // Traduce el código de tipo de documento a descripción.
+                    $tipoNombre = fn ($t) => match ((string) $t) {
+                        '61'    => 'Nota Crédito',
+                        default => 'Factura',
+                    };
+                @endphp
                 @foreach ($bloque as $f)
                     @if ($f['tipo'] === 'doc')
                         @php $d = $f['doc']; @endphp
                         <tr>
                             <td>{{ $d->nro }}</td>
-                            <td>{{ $d->tipo_dte }}</td>
+                            <td>{{ $tipoNombre($d->tipo_dte) }}</td>
                             <td class="izq">{{ $d->rut_cliente }}</td>
-                            <td class="izq">{{ \Illuminate\Support\Str::limit($d->razon_social, 40, '') }}</td>
+                            <td class="izq">{{ \Illuminate\Support\Str::limit($d->razon_social, 42, '') }}</td>
                             <td>{{ $d->folio }}</td>
                             <td>{{ $d->fecha->format('d-m-Y') }}</td>
                             <td class="num">{{ $fmt($d->exento) }}</td>
